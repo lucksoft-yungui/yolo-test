@@ -1,3 +1,4 @@
-torch
-ultralytics
-opencv-python
+# Kaggle 环境已预装 torch，避免重新安装触发 CUDA 依赖降级
+ultralytics>=8.3.0,<8.4.0
+numpy==1.26.4
+opencv-python-headless>=4.8.0.74
