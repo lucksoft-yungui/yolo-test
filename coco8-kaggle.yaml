@@ -1,5 +1,5 @@
 # COCO8 数据集配置文件
-path: datasets/coco8  # 数据集根目录（相对于此yaml文件）
+path: /kaggle/input/coco8-yolo/coco8  # 数据集根目录（相对于此yaml文件）
 train: images/train  # 训练图片目录（相对于path）
 val: images/val      # 验证图片目录（相对于path）
 
