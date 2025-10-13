@@ -126,3 +126,5 @@ runs/
 datasets/
 
 .DS_Store
+
+train-img/
