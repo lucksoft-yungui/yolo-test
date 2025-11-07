@@ -14,8 +14,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="播放 RTSP 视频流")
     parser.add_argument(
         "--model",
-        default="model/best.pt",
-        help="YOLO 模型文件路径，用于绘制识别框。",
+        default="yolo11n.pt",
+        help="YOLO 模型权重，默认使用官方 COCO 80 类别模型。",
     )
     parser.add_argument(
         "--conf",
@@ -156,11 +156,14 @@ def play_stream(
 def main() -> None:
     args = parse_args()
     model_path = Path(args.model).expanduser()
-    if not model_path.is_file():
-        raise FileNotFoundError(f"未找到模型文件：{model_path}")
-
+    if model_path.is_file():
+        model_source = str(model_path)
+    else:
+        model_source = args.model
+        if len(model_path.parts) > 1:
+            print(f"提示：未找到 {model_path}，尝试直接使用权重标识 {args.model}。")
     conf_threshold = max(args.conf, 0.6)
-    model = YOLO(str(model_path))
+    model = YOLO(model_source)
 
     play_stream(args.url, args.window, args.reconnect, args.wait, model, conf_threshold)
 
