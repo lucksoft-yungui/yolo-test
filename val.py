@@ -1,8 +1,16 @@
 import argparse
+import sys
+import time
 from pathlib import Path
 
 import cv2
 from ultralytics import YOLO
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except AttributeError:
+    pass
 
 
 def parse_args() -> argparse.Namespace:
@@ -31,7 +39,9 @@ def main() -> None:
         raise FileNotFoundError(f"未找到图片文件：{image_path}")
 
     model = YOLO(str(model_path))
+    start_time = time.perf_counter()
     results = model(str(image_path))
+    elapsed = time.perf_counter() - start_time
 
     for idx, result in enumerate(results):
         num_boxes = len(result.boxes) if result.boxes is not None else 0
@@ -49,6 +59,7 @@ def main() -> None:
         window_name = f"result_{idx + 1}"
         cv2.imshow(window_name, annotated)
 
+    print(f"模型推理耗时：{elapsed * 1000:.2f} ms")
     print("按任意键关闭窗口。")
     cv2.waitKey(0)
     cv2.destroyAllWindows()
