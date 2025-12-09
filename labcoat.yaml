@@ -1,0 +1,8 @@
+# Lab coat dataset configuration
+path: datasets/labcoat
+train: images/train
+val: images/train  # 如有验证集可改为 images/val
+
+names:
+  0: no_labcoat
+  1: labcoat

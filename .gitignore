@@ -128,3 +128,5 @@ datasets/
 .DS_Store
 
 train-img/
+
+model/
