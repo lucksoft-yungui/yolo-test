@@ -130,3 +130,5 @@ datasets/
 train-img/
 
 model/
+
+.vscode/

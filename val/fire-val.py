@@ -1,8 +1,15 @@
 import argparse
 from pathlib import Path
+import sys
+import time
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 import cv2
 from ultralytics import YOLO
+from utils.alert_queue import AlertQueue
 
 
 def parse_args() -> argparse.Namespace:
@@ -24,6 +31,12 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.05,
         help="置信度阈值，默认0.01（可调高降低误检）",
+    )
+    parser.add_argument(
+        "--alert-cooldown",
+        type=float,
+        default=5.0,
+        help="告警冷却时间（秒），在该时间窗口内不重复触发报警，默认5秒",
     )
     parser.add_argument(
         "--device",
@@ -49,6 +62,8 @@ def main() -> None:
     args = parse_args()
     names = ["fire"]
     model = load_model(args.model, args.device, names)
+
+    alert_queue = AlertQueue(model=args.model, video=args.video, cooldown_seconds=args.alert_cooldown)
 
     cap = cv2.VideoCapture(str(args.video))
     if not cap.isOpened():
@@ -91,6 +106,12 @@ def main() -> None:
                         2,
                         cv2.LINE_AA,
                     )
+
+                    if alert_queue.enqueue(confidence=conf, threshold=args.conf):
+                        ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                        print(
+                            f"[{ts}] 触发告警，模型={alert_queue.model_path}, 视频={alert_queue.video_source}, 置信度={conf:.2f}"
+                        )
 
             cv2.imshow(window_name, annotated)
             key = cv2.waitKey(1) & 0xFF
