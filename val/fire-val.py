@@ -23,13 +23,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model",
         type=Path,
-        default=Path("model/fire/weights/best.pt"),
-        help="训练好的模型权重，默认 model/fire/weights/best.pt",
+        default=Path("model/fire-kaggle/weights/best.pt"),
+        help="训练好的模型权重，默认 model/fire-kaggle/weights/best.pt",
     )
     parser.add_argument(
         "--conf",
         type=float,
-        default=0.05,
+        default=0.6,
         help="置信度阈值，默认0.01（可调高降低误检）",
     )
     parser.add_argument(
