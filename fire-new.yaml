@@ -1,0 +1,7 @@
+# Auto-generated YOLO dataset config for fire detection
+path: datasets/fire-new
+train: train
+val: valid
+
+names:
+  0: fire

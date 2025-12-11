@@ -1,0 +1,7 @@
+# Auto-generated clothes-only dataset config
+path: datasets/fanghufu-clothes
+train: images/train
+val: images/val
+
+names:
+  0: clothes

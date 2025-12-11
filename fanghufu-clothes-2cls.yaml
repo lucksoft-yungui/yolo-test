@@ -1,0 +1,8 @@
+# Clothes (class 0) + No_clothes/person (class 1)
+path: datasets/fanghufu-clothes-2cls
+train: images/train
+val: images/val
+
+names:
+  0: clothes
+  1: no_clothes
