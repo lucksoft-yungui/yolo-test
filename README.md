@@ -41,6 +41,7 @@ python main.py
 
 ## 训练使用说明
 - 数据集配置：`train.py --data <name_or_yaml>`，可传数据集名（如 `labcoat`）自动匹配 `datasets/labcoat/labcoat.yaml`，也可直接传 yaml 路径。
+- 也可直接指定配置文件：`train.py --file play-phone-kaggle.yaml`，优先于 `--data`。
 - 模型输出：默认写入 `model/<数据集名>/`，可用 `--project` 自定义根目录、`--name` 自定义 run 名。
 - 基本示例：`python train.py --data labcoat --epochs 5 --imgsz 640`
 - 断点恢复：`--resume` 自动寻找最近的 `last.pt`，或用 `--checkpoint path/to/last.pt` 指定。

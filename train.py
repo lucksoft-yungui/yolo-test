@@ -41,6 +41,10 @@ def parse_args():
         default="play-phone",
         help="数据集配置或名称，例如 labcoat 或 datasets/labcoat/labcoat.yaml",
     )
+    parser.add_argument(
+        "--file",
+        help="数据集配置文件路径，可替代 --data 直接传入 yaml",
+    )
     parser.add_argument("--epochs", type=int, default=100, help="训练轮次")
     parser.add_argument("--imgsz", type=int, default=640, help="输入图片尺寸")
     parser.add_argument("--resume", action="store_true", help="从最近一次训练断点恢复")
@@ -88,8 +92,11 @@ def load_model(args) -> Tuple[YOLO, bool]:
 def main():
     args = parse_args()
 
+    # 优先使用 --file 指定的配置文件，否则回落到 --data
+    data_arg = args.file if args.file else args.data
+
     # 解析数据集路径与名称（支持 data=labcoat 形式）
-    data_path, dataset_name = resolve_data_path(args.data)
+    data_path, dataset_name = resolve_data_path(data_arg)
 
     # 训练输出位置：默认 project=model，name=数据集名
     project = Path(args.project) if args.project else Path("model")

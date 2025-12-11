@@ -132,3 +132,5 @@ train-img/
 model/
 
 .vscode/
+
+datasets-raw/
