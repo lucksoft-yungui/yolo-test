@@ -121,14 +121,17 @@ def main() -> None:
                                 frame=frame,
                                 event_msec=cap.get(cv2.CAP_PROP_POS_MSEC),
                                 context_sec=10.0,
-                                device_id="2b734f5111024e25b44c83b4ca590bb8",
-                                zone_id="0b069f61-9e42-406e-9f24-0ba20206d49d",
+                                device_id="fa6922a824e94a7e9af59c470e99951d",
+                                zone_id="7b2b894b-8dcc-4e65-9f8b-210426eafb03",
                                 zone_type_no="fanghufu_alarm",
                                 annotate_model_path=args.model,
                                 annotate_conf=args.conf,
+                                annotate_every_n=5,
+                                annotate_imgsz=640,
                                 annotate_class_names=names,
                                 annotate_color_map={0: (0, 255, 0), 1: (0, 0, 255)},
                                 annotate_device=args.device,
+                                debug_timing=True,
                             )
                             print(f"告警素材保存: 视频={saved['video']}, 帧图={saved['frame']}")
                         except Exception as exc:  # 避免告警推送异常影响检测循环

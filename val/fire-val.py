@@ -120,12 +120,15 @@ def main() -> None:
                                 event_msec=cap.get(cv2.CAP_PROP_POS_MSEC),
                                 context_sec=10.0,
                                 device_id="7af52fcf3bf049b0a2270bb94bef7cab",
-                                zone_id="4a6ec4e0-d975-4db8-9286-736b1f93ef8c",
+                                zone_id="46f20c00-2067-491d-b774-c60e40448018",
                                 zone_type_no="fire_alarm",
                                 annotate_model_path=args.model,
                                 annotate_conf=args.conf,
+                                annotate_every_n=5,
+                                annotate_imgsz=640,
                                 annotate_class_names=names,
                                 annotate_device=args.device,
+                                debug_timing=True,
                             )
                             print(f"告警素材保存: 视频={saved['video']}, 帧图={saved['frame']}")
                         except Exception as exc:  # 避免告警推送异常影响检测循环

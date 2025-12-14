@@ -11,6 +11,30 @@ from urllib import error, request
 
 import cv2
 
+_YOLO_MODEL_CACHE: dict[tuple[str, str | None], Any] = {}
+_YOLO_MODEL_LOCKS: dict[tuple[str, str | None], threading.Lock] = {}
+_YOLO_CACHE_LOCK = threading.Lock()
+
+
+def _get_cached_yolo(model_path: str | Path, device: str | None) -> tuple[Any, threading.Lock]:
+    key = (str(Path(model_path).resolve()), device)
+    with _YOLO_CACHE_LOCK:
+        model = _YOLO_MODEL_CACHE.get(key)
+        if model is None:
+            from ultralytics import YOLO  # 延迟导入，减少非 YOLO 场景启动开销
+
+            model = YOLO(str(model_path))
+            if device:
+                model.to(device)
+            _YOLO_MODEL_CACHE[key] = model
+
+        lock = _YOLO_MODEL_LOCKS.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _YOLO_MODEL_LOCKS[key] = lock
+
+    return model, lock
+
 
 def _ensure_output_dir() -> Path:
     """确保告警输出目录存在并返回绝对路径。"""
@@ -25,8 +49,13 @@ def _cut_video_segment(
     context_sec: float,
     output_path: Path,
     annotate_frame: Callable[[Any], Any] | None = None,
+    stats_out: dict[str, float | int] | None = None,
 ) -> Path:
-    """截取事件帧前后各 context_sec 秒的片段并保存，返回保存路径。"""
+    """截取事件帧前后各 context_sec 秒的片段并保存为 H.264 mp4，返回保存路径。"""
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        raise RuntimeError("未找到 ffmpeg，无法生成 H.264 告警视频（请先安装 ffmpeg）")
+
     cap = cv2.VideoCapture(str(source_video))
     if not cap.isOpened():
         raise FileNotFoundError(f"无法打开视频文件用于截取: {source_video}")
@@ -46,19 +75,92 @@ def _cut_video_segment(
         raise RuntimeError("截取片段失败：无法读取起始帧")
 
     height, width = frame.shape[:2]
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    writer = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    cmd = [
+        ffmpeg,
+        "-y",
+        "-f",
+        "rawvideo",
+        "-pix_fmt",
+        "bgr24",
+        "-s",
+        f"{width}x{height}",
+        "-r",
+        str(fps),
+        "-i",
+        "pipe:0",
+        "-an",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-profile:v",
+        "baseline",
+        "-preset",
+        "veryfast",
+        "-movflags",
+        "+faststart",
+        str(output_path),
+    ]
+    proc = subprocess.Popen(
+        cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+    )
+
+    total_frames = 0
+    annotate_sec = 0.0
 
     try:
-        writer.write(annotate_frame(frame) if annotate_frame else frame)
+        if proc.stdin is None:
+            raise RuntimeError("ffmpeg 启动失败：stdin 不可用")
+
+        if annotate_frame:
+            t0 = time.perf_counter()
+            first = annotate_frame(frame)
+            annotate_sec += time.perf_counter() - t0
+        else:
+            first = frame
+        try:
+            proc.stdin.write(first.tobytes())
+        except BrokenPipeError:
+            pass
+        total_frames += 1
         while cap.get(cv2.CAP_PROP_POS_MSEC) < end_msec:
             ret, frame = cap.read()
             if not ret:
                 break
-            writer.write(annotate_frame(frame) if annotate_frame else frame)
+            if annotate_frame:
+                t0 = time.perf_counter()
+                out = annotate_frame(frame)
+                annotate_sec += time.perf_counter() - t0
+            else:
+                out = frame
+            try:
+                proc.stdin.write(out.tobytes())
+            except BrokenPipeError:
+                break
+            total_frames += 1
     finally:
-        writer.release()
         cap.release()
+        if proc.stdin is not None:
+            try:
+                proc.stdin.close()
+            finally:
+                proc.stdin = None
+
+    _, stderr = proc.communicate()
+    if proc.returncode != 0:
+        raise RuntimeError(
+            "ffmpeg 编码失败: "
+            f"stderr={stderr.decode('utf-8', errors='ignore').strip()}"
+        )
+
+    if stats_out is not None:
+        stats_out["frames"] = total_frames
+        stats_out["annotate_sec"] = annotate_sec
 
     return output_path
 
@@ -212,9 +314,12 @@ def push_alert(
     cover_override: str | Path | None = None,
     annotate_model_path: str | Path | None = None,
     annotate_conf: float = 0.25,
+    annotate_every_n: int = 1,
+    annotate_imgsz: int | None = None,
     annotate_class_names: Sequence[str] | None = None,
     annotate_color_map: dict[int, tuple[int, int, int]] | None = None,
     annotate_device: str | None = None,
+    debug_timing: bool = False,
     async_mode: bool = True,
 ) -> dict[str, Path | threading.Thread]:
     """
@@ -225,47 +330,84 @@ def push_alert(
     """
     output_dir = _ensure_output_dir()
     ts = time.strftime("%Y%m%d_%H%M%S", time.localtime())
-    segment_raw_path = (output_dir / f"alert_{ts}_raw.mp4").resolve()
     segment_path = (output_dir / f"alert_{ts}.mp4").resolve()
     frame_path = (output_dir / f"alert_{ts}.jpg").resolve()
 
     frame_copy = frame.copy() if hasattr(frame, "copy") else frame
 
     def _worker() -> None:
+        t_worker0 = time.perf_counter()
+        t_cut_sec = 0.0
+        t_cover_sec = 0.0
+        t_push_sec = 0.0
+        t_model_get_sec = 0.0
+        t_infer_sec = 0.0
+        t_draw_sec = 0.0
+        infer_frames = 0
+        skipped_infer_frames = 0
+        segment_stats: dict[str, float | int] = {}
         try:
             annotate_frame = None
             if annotate_model_path is not None:
-                from ultralytics import YOLO  # 延迟导入，避免影响其它脚本启动速度
-
-                yolo = YOLO(str(annotate_model_path))
+                t0 = time.perf_counter()
+                yolo, yolo_lock = _get_cached_yolo(annotate_model_path, annotate_device)
                 if annotate_class_names:
                     yolo.model.names = {i: name for i, name in enumerate(annotate_class_names)}
-                if annotate_device:
-                    yolo.to(annotate_device)
+                t_model_get_sec = time.perf_counter() - t0
+
+                every_n = max(1, int(annotate_every_n))
+                frame_index = 0
+                last_results: Any | None = None
 
                 def annotate_frame(frame_to_annotate: Any) -> Any:
-                    results = yolo(frame_to_annotate, conf=annotate_conf, verbose=False)
-                    return _draw_yolo_boxes(
+                    nonlocal t_infer_sec, t_draw_sec, infer_frames
+                    nonlocal frame_index, last_results, skipped_infer_frames
+                    need_infer = (frame_index % every_n == 0) or (last_results is None)
+                    frame_index += 1
+
+                    if need_infer:
+                        with yolo_lock:
+                            t0 = time.perf_counter()
+                            yolo_kwargs: dict[str, Any] = {
+                                "conf": annotate_conf,
+                                "verbose": False,
+                            }
+                            if annotate_imgsz is not None:
+                                yolo_kwargs["imgsz"] = annotate_imgsz
+                            results = yolo(frame_to_annotate, **yolo_kwargs)
+                            t_infer_sec += time.perf_counter() - t0
+                        last_results = results
+                        infer_frames += 1
+                    else:
+                        results = last_results
+                        skipped_infer_frames += 1
+
+                    t1 = time.perf_counter()
+                    annotated = _draw_yolo_boxes(
                         frame_to_annotate,
                         results,
                         class_names=annotate_class_names,
                         color_map=annotate_color_map,
                     )
+                    t_draw_sec += time.perf_counter() - t1
+                    return annotated
 
-            segment_raw = _cut_video_segment(
+            t0 = time.perf_counter()
+            segment = _cut_video_segment(
                 video_path,
                 event_msec,
                 context_sec,
-                segment_raw_path,
+                segment_path,
                 annotate_frame=annotate_frame,
+                stats_out=segment_stats,
             )
-            segment = _transcode_to_h264_mp4(segment_raw, segment_path)
-            try:
-                segment_raw.unlink(missing_ok=True)
-            except Exception:
-                pass
-            image = _save_frame_image(frame_copy, frame_path)
+            t_cut_sec = time.perf_counter() - t0
 
+            t0 = time.perf_counter()
+            image = _save_frame_image(frame_copy, frame_path)
+            t_cover_sec = time.perf_counter() - t0
+
+            t0 = time.perf_counter()
             _send_push_api(
                 endpoint=push_endpoint,
                 device_id=device_id,
@@ -276,8 +418,21 @@ def push_alert(
                 video_override=video_override,
                 cover_override=cover_override,
             )
+            t_push_sec = time.perf_counter() - t0
         except Exception as exc:  # 捕获并打印，避免线程静默失败
             print(f"[告警推送异常] {exc}")
+        finally:
+            if debug_timing:
+                t_total = time.perf_counter() - t_worker0
+                frames = int(segment_stats.get("frames", 0))
+                annotate_sec = float(segment_stats.get("annotate_sec", 0.0))
+                print(
+                    "[告警耗时] "
+                    f"total={t_total:.3f}s, cut+encode={t_cut_sec:.3f}s, cover={t_cover_sec:.3f}s, push={t_push_sec:.3f}s, "
+                    f"frames={frames}, annotate_total={annotate_sec:.3f}s, "
+                    f"model_get={t_model_get_sec:.3f}s, infer={t_infer_sec:.3f}s, draw={t_draw_sec:.3f}s, "
+                    f"infer_frames={infer_frames}, skipped_infer_frames={skipped_infer_frames}, every_n={max(1, int(annotate_every_n))}"
+                )
 
     if async_mode:
         thread = threading.Thread(target=_worker, daemon=True)
