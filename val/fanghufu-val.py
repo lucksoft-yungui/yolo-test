@@ -14,23 +14,23 @@ from utils.alert_push import push_alert
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="播放视频并用训练好的火焰模型绘制目标框")
+    parser = argparse.ArgumentParser(description="播放视频并用防护服模型绘制目标框，对未穿防护服触发告警")
     parser.add_argument(
         "--video",
         type=Path,
-        default=Path("videos") / "fire.mp4",
-        help="源视频路径，默认 videos/fire.mp4",
+        default=Path("videos") / "fanghufu.mp4",
+        help="源视频路径，默认 videos/fanghufu.mp4",
     )
     parser.add_argument(
         "--model",
         type=Path,
-        default=Path("model/fire-kaggle/weights/best.pt"),
-        help="训练好的模型权重，默认 model/fire-kaggle/weights/best.pt",
+        default=Path("model/labcoat-add-overfit/weights/best.pt"),
+        help="训练好的模型权重，默认 model/labcoat-add-ft/weights/best.pt",
     )
     parser.add_argument(
         "--conf",
         type=float,
-        default=0.6,
+        default=0.7,
         help="置信度阈值，默认0.01（可调高降低误检）",
     )
     parser.add_argument(
@@ -52,6 +52,7 @@ def load_model(weight_path: Path, device: str | None, class_names: list[str]) ->
     if not weight_path.exists():
         raise FileNotFoundError(f"未找到模型文件: {weight_path}")
     model = YOLO(str(weight_path))
+    # 覆盖类别名，避免权重中缺少名称时显示数字
     if class_names:
         model.model.names = {i: name for i, name in enumerate(class_names)}
     if device:
@@ -61,7 +62,7 @@ def load_model(weight_path: Path, device: str | None, class_names: list[str]) ->
 
 def main() -> None:
     args = parse_args()
-    names = ["fire"]
+    names = ["clothes", "no_clothes"]
     model = load_model(args.model, args.device, names)
 
     alert_queue = AlertQueue(model=args.model, video=args.video, cooldown_seconds=args.alert_cooldown)
@@ -70,7 +71,7 @@ def main() -> None:
     if not cap.isOpened():
         raise FileNotFoundError(f"无法打开视频文件: {args.video}")
 
-    window_name = "Fire Detection"
+    window_name = "Fanghufu Detection"
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
     print("按 q 或 ESC 退出播放。")
 
@@ -89,7 +90,7 @@ def main() -> None:
                     cls_id = int(box.cls[0])
                     conf = float(box.conf[0])
                     label = f"{names[cls_id] if cls_id < len(names) else cls_id} {conf:.2f}"
-                    color = (0, 0, 255)
+                    color = (0, 255, 0) if cls_id == 0 else (0, 0, 255)
                     cv2.rectangle(
                         annotated,
                         (int(x1), int(y1)),
@@ -108,10 +109,11 @@ def main() -> None:
                         cv2.LINE_AA,
                     )
 
-                    if alert_queue.enqueue(confidence=conf, threshold=args.conf):
+                    # 仅对未穿防护服的检测记录告警
+                    if cls_id == 1 and alert_queue.enqueue(confidence=conf, threshold=args.conf):
                         ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
                         print(
-                            f"[{ts}] 触发告警，模型={alert_queue.model_path}, 视频={alert_queue.video_source}, 置信度={conf:.2f}"
+                            f"[{ts}] 触发告警（未穿防护服），模型={alert_queue.model_path}, 视频={alert_queue.video_source}, 置信度={conf:.2f}"
                         )
                         try:
                             saved = push_alert(
@@ -119,12 +121,13 @@ def main() -> None:
                                 frame=frame,
                                 event_msec=cap.get(cv2.CAP_PROP_POS_MSEC),
                                 context_sec=10.0,
-                                device_id="7af52fcf3bf049b0a2270bb94bef7cab",
-                                zone_id="4a6ec4e0-d975-4db8-9286-736b1f93ef8c",
-                                zone_type_no="fire_alarm",
+                                device_id="2b734f5111024e25b44c83b4ca590bb8",
+                                zone_id="0b069f61-9e42-406e-9f24-0ba20206d49d",
+                                zone_type_no="fanghufu_alarm",
                                 annotate_model_path=args.model,
                                 annotate_conf=args.conf,
                                 annotate_class_names=names,
+                                annotate_color_map={0: (0, 255, 0), 1: (0, 0, 255)},
                                 annotate_device=args.device,
                             )
                             print(f"告警素材保存: 视频={saved['video']}, 帧图={saved['frame']}")

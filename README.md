@@ -46,3 +46,15 @@ python main.py
 - 基本示例：`python train.py --data labcoat --epochs 5 --imgsz 640`
 - 断点恢复：`--resume` 自动寻找最近的 `last.pt`，或用 `--checkpoint path/to/last.pt` 指定。
 - 硬件检测：自动检测 MPS/CUDA/CPU 并提示当前训练设备。
+
+## 微调
+```
+yolo train \
+  model=model/fanghufu-clothes-2cls-kaggle/weights/best.pt \
+  data=datasets/labcoat-add/labcoat-add.yaml \
+  epochs=200 imgsz=640 batch=8 \
+  lr0=1e-3 weight_decay=1e-4 patience=0 \
+  mosaic=0.0 mixup=0.0 copy_paste=0.0 \
+  project=model name=labcoat-add-overfit
+```
+
