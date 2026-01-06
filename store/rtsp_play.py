@@ -165,7 +165,9 @@ class AsyncAnnotator:
 
 @dataclass
 class SharedState:
-    items: Dict[str, int] = field(default_factory=dict)
+    auto_items: Dict[str, int] = field(default_factory=dict)
+    manual_items: Dict[str, int] = field(default_factory=dict)
+    excluded_items: set[str] = field(default_factory=set)
     whitelist: Dict[str, "WhitelistEntry"] = field(default_factory=dict)
     model_path: str = ""
     locked: bool = False
@@ -180,6 +182,18 @@ class SharedState:
     def whitelist_snapshot(self) -> Dict[str, "WhitelistEntry"]:
         with self.lock:
             return {name: entry.copy() for name, entry in self.whitelist.items()}
+
+    def merged_items(self) -> Dict[str, int]:
+        merged = dict(self.auto_items)
+        for name in self.excluded_items:
+            merged.pop(name, None)
+        for name, qty in self.manual_items.items():
+            merged[name] = qty
+        return merged
+
+    def current_items(self) -> Dict[str, int]:
+        with self.lock:
+            return self.merged_items()
 
     def save_config(self) -> None:
         if self.config_path is None:
@@ -250,15 +264,14 @@ def update_inventory_state(
                     state.no_object_since = now
                 elif now - state.no_object_since >= clear_hold_s:
                     state.locked = False
-                    state.manual_override = False
-                    state.items = {}
+                    state.manual_override = bool(state.manual_items or state.excluded_items)
+                    state.auto_items = {}
                     state.last_action = None
                     state.no_object_since = None
             return
 
         state.no_object_since = None
-        if not state.manual_override:
-            state.items = dict(counts) if counts else {}
+        state.auto_items = dict(counts) if counts else {}
 
 
 def video_loop(
@@ -317,6 +330,19 @@ def frame_to_qimage(frame: cv2.Mat, target_width: int) -> Optional[QtGui.QImage]
     return image.copy()
 
 
+class ItemTable(QtWidgets.QTableWidget):
+    def __init__(self, parent_window: "WarehouseWindow"):
+        super().__init__(0, 2, parent_window)
+        self.parent_window = parent_window
+
+    def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
+        text = event.text()
+        if text.isdigit():
+            self.parent_window.apply_quantity_input(text)
+            return
+        super().keyPressEvent(event)
+
+
 class WarehouseWindow(QtWidgets.QMainWindow):
     def __init__(
         self,
@@ -331,6 +357,8 @@ class WarehouseWindow(QtWidgets.QMainWindow):
         self.display_width = display_width
         self.rendered_items: Dict[str, int] = {}
         self.rendered_whitelist: Dict[str, Tuple[bool, str, Optional[float]]] = {}
+        self.qty_input_buffer = ""
+        self.qty_input_ts = 0.0
 
         self.setWindowTitle("仓储出入库识别")
         self.setMinimumSize(1200, 700)
@@ -360,11 +388,12 @@ class WarehouseWindow(QtWidgets.QMainWindow):
         self.status_label = QtWidgets.QLabel("识别状态：等待画面")
         main_layout.addWidget(self.status_label)
 
-        self.table = QtWidgets.QTableWidget(0, 2)
+        self.table = ItemTable(self)
         self.table.setHorizontalHeaderLabels(["物品", "数量"])
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.itemSelectionChanged.connect(self.sync_inputs_from_selection)
         main_layout.addWidget(self.table, stretch=1)
 
         form = QtWidgets.QWidget()
@@ -374,12 +403,14 @@ class WarehouseWindow(QtWidgets.QMainWindow):
 
         form_layout.addWidget(QtWidgets.QLabel("物品"), 0, 0)
         self.item_name = QtWidgets.QLineEdit()
+        self.item_name.returnPressed.connect(self.add_or_update)
         form_layout.addWidget(self.item_name, 0, 1)
 
         form_layout.addWidget(QtWidgets.QLabel("数量"), 1, 0)
         self.qty_spin = QtWidgets.QSpinBox()
         self.qty_spin.setRange(1, 999)
         self.qty_spin.setValue(1)
+        self.qty_spin.lineEdit().returnPressed.connect(self.add_or_update)
         form_layout.addWidget(self.qty_spin, 1, 1)
 
         btn_row = QtWidgets.QHBoxLayout()
@@ -494,9 +525,11 @@ class WarehouseWindow(QtWidgets.QMainWindow):
             return
         qty = int(self.qty_spin.value())
         with self.state.lock:
-            self.state.items[name] = qty
+            self.state.manual_items[name] = qty
+            self.state.excluded_items.discard(name)
             self.state.manual_override = True
         self.notice_label.setText("已更新清单。")
+        self.qty_input_buffer = ""
 
     def browse_model_path(self) -> None:
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -514,6 +547,46 @@ class WarehouseWindow(QtWidgets.QMainWindow):
             self.state.model_path = path
         self.state.save_config()
         self.notice_label.setText("已保存模型配置，重启后生效。")
+
+    def sync_inputs_from_selection(self) -> None:
+        selected = self.table.selectionModel().selectedRows()
+        if not selected:
+            return
+        row = selected[0].row()
+        name_item = self.table.item(row, 0)
+        qty_item = self.table.item(row, 1)
+        if name_item is None or qty_item is None:
+            return
+        self.item_name.setText(name_item.text())
+        try:
+            qty = int(qty_item.text())
+        except ValueError:
+            qty = 1
+        self.qty_spin.setValue(max(1, qty))
+
+    def apply_quantity_input(self, digit_text: str) -> None:
+        selected = self.table.selectionModel().selectedRows()
+        if not selected:
+            return
+        now = time.time()
+        if now - self.qty_input_ts > 1.0:
+            self.qty_input_buffer = ""
+        self.qty_input_ts = now
+        self.qty_input_buffer = (self.qty_input_buffer + digit_text).lstrip("0") or "0"
+        qty = int(self.qty_input_buffer)
+        qty = max(1, qty)
+        row = selected[0].row()
+        name_item = self.table.item(row, 0)
+        if name_item is None:
+            return
+        name = name_item.text()
+        with self.state.lock:
+            self.state.manual_items[name] = qty
+            self.state.excluded_items.discard(name)
+            self.state.manual_override = True
+        self.qty_spin.setValue(qty)
+        self.notice_label.setText(f"已更新 {name} 数量为 {qty}")
+        self.table.setFocus()
 
     def add_or_update_whitelist(self) -> None:
         class_name = self.class_combo.currentText().strip()
@@ -540,8 +613,9 @@ class WarehouseWindow(QtWidgets.QMainWindow):
         names = [self.table.item(idx.row(), 0).text() for idx in selected]
         with self.state.lock:
             for name in names:
-                self.state.items.pop(name, None)
-            self.state.manual_override = True
+                self.state.manual_items.pop(name, None)
+                self.state.excluded_items.add(name)
+            self.state.manual_override = bool(self.state.manual_items or self.state.excluded_items)
         self.notice_label.setText("已删除条目。")
 
     def delete_whitelist(self) -> None:
@@ -561,12 +635,14 @@ class WarehouseWindow(QtWidgets.QMainWindow):
             if self.state.locked:
                 self.notice_label.setText("已锁定，等待画面清空。")
                 return
+            self.state.manual_items = {}
+            self.state.excluded_items = set()
             self.state.manual_override = False
         self.notice_label.setText("已恢复自动识别。")
 
     def apply_action(self, action: str) -> None:
         with self.state.lock:
-            if not self.state.items:
+            if not self.state.merged_items():
                 self.notice_label.setText("当前无清单可操作。")
                 return
             self.state.locked = True
@@ -578,7 +654,7 @@ class WarehouseWindow(QtWidgets.QMainWindow):
     def update_ui(self) -> None:
         with self.state.lock:
             frame = None if self.state.latest_frame is None else self.state.latest_frame.copy()
-            items = dict(self.state.items)
+            items = self.state.merged_items()
             locked = self.state.locked
             manual_override = self.state.manual_override
             last_action = self.state.last_action
@@ -591,12 +667,27 @@ class WarehouseWindow(QtWidgets.QMainWindow):
                 self.video_label.setPixmap(pixmap)
 
         if items != self.rendered_items:
+            selected_name = None
+            selected_rows = self.table.selectionModel().selectedRows()
+            if selected_rows:
+                row = selected_rows[0].row()
+                name_item = self.table.item(row, 0)
+                if name_item is not None:
+                    selected_name = name_item.text()
             self.table.setRowCount(0)
             for name, qty in sorted(items.items()):
                 row = self.table.rowCount()
                 self.table.insertRow(row)
                 self.table.setItem(row, 0, QtWidgets.QTableWidgetItem(name))
                 self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(str(qty)))
+            if selected_name:
+                for row in range(self.table.rowCount()):
+                    name_item = self.table.item(row, 0)
+                    if name_item is not None and name_item.text() == selected_name:
+                        self.table.setCurrentCell(row, 0)
+                        self.table.selectRow(row)
+                        self.table.setFocus()
+                        break
             self.rendered_items = items
 
         whitelist_render = {
