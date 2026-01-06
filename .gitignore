@@ -138,3 +138,5 @@ datasets-raw/
 videos/
 
 fire-store/
+
+.config/

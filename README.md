@@ -58,3 +58,16 @@ yolo train \
   project=model name=labcoat-add-overfit
 ```
 
+## 视频验证脚本
+
+通用视频验证脚本：加载模型对视频进行检测并绘制目标框。
+
+```bash
+python val/video-val.py \
+  --model model/fire-store/weights/best.pt \
+  --video videos/shoe.mp4
+```
+
+可选参数：
+- `--conf` 置信度阈值，默认 0.6
+- `--device` 指定设备（如 `cpu` / `cuda` / `mps`）
