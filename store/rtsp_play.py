@@ -782,7 +782,7 @@ class WarehouseWindow(QtWidgets.QMainWindow):
             if self.state.locked:
                 self.notice_label.setText("已锁定，等待画面清空。")
                 return
-            self.state.manual_items = {}
+            self.state.auto_items = {}
             self.state.excluded_items = set()
             self.state.manual_override = False
         self.notice_label.setText("已恢复自动识别。")
