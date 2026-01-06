@@ -172,6 +172,7 @@ class SharedState:
     whitelist: Dict[str, "WhitelistEntry"] = field(default_factory=dict)
     model_path: str = ""
     dataset_path: str = ""
+    detect_mode: str = "realtime"
     class_names: list[str] = field(default_factory=list)
     class_version: int = 0
     reload_token: int = 0
@@ -218,6 +219,7 @@ class SharedState:
             payload = {
                 "model_path": self.model_path,
                 "dataset_path": self.dataset_path,
+                "detect_mode": self.detect_mode,
                 "whitelist": {
                     name: {
                         "enabled": entry.enabled,
@@ -242,6 +244,7 @@ class SharedState:
             return
         model_path = payload.get("model_path", "")
         dataset_path = payload.get("dataset_path", "")
+        detect_mode = payload.get("detect_mode", "realtime")
         whitelist = {}
         for name, data in (payload.get("whitelist") or {}).items():
             if not isinstance(data, dict):
@@ -255,6 +258,7 @@ class SharedState:
             self.whitelist = whitelist
             self.model_path = str(model_path or "")
             self.dataset_path = str(dataset_path or "")
+            self.detect_mode = detect_mode if detect_mode in ("realtime", "sticky") else "realtime"
 
 
 @dataclass
@@ -290,7 +294,12 @@ def update_inventory_state(
             return
 
         state.no_object_since = None
-        state.auto_items = dict(counts) if counts else {}
+        if state.detect_mode == "sticky":
+            for name, qty in counts.items():
+                current_qty = state.auto_items.get(name, 0)
+                state.auto_items[name] = max(current_qty, qty)
+        else:
+            state.auto_items = dict(counts) if counts else {}
 
 
 def video_loop(
@@ -535,6 +544,22 @@ class WarehouseWindow(QtWidgets.QMainWindow):
         save_model_btn.clicked.connect(self.save_model_path)
         model_layout.addWidget(save_model_btn, 2, 1, 1, 2)
 
+        mode_group = QtWidgets.QGroupBox("识别模式")
+        mode_layout = QtWidgets.QHBoxLayout(mode_group)
+        config_layout.addWidget(mode_group)
+        self.mode_combo = QtWidgets.QComboBox()
+        self.mode_combo.addItem("实时渲染清单", "realtime")
+        self.mode_combo.addItem("发现一次加入清单", "sticky")
+        with self.state.lock:
+            current_mode = self.state.detect_mode
+        index = self.mode_combo.findData(current_mode)
+        if index >= 0:
+            self.mode_combo.setCurrentIndex(index)
+        mode_layout.addWidget(self.mode_combo)
+        save_mode_btn = QtWidgets.QPushButton("保存识别模式")
+        save_mode_btn.clicked.connect(self.save_detect_mode)
+        mode_layout.addWidget(save_mode_btn)
+
         whitelist_title = QtWidgets.QLabel("类别白名单")
         whitelist_title.setStyleSheet("font-weight:600;")
         config_layout.addWidget(whitelist_title)
@@ -637,6 +662,13 @@ class WarehouseWindow(QtWidgets.QMainWindow):
         self.state.save_config()
         self.state.request_reload()
         self.notice_label.setText("已保存模型配置，正在重新加载。")
+
+    def save_detect_mode(self) -> None:
+        mode = self.mode_combo.currentData()
+        with self.state.lock:
+            self.state.detect_mode = mode if mode in ("realtime", "sticky") else "realtime"
+        self.state.save_config()
+        self.notice_label.setText("已保存识别模式。")
 
     def sync_inputs_from_selection(self) -> None:
         selected = self.table.selectionModel().selectedRows()
