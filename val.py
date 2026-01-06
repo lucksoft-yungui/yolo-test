@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 import time
 from pathlib import Path
@@ -51,6 +52,9 @@ def main() -> None:
     args = parse_args()
     model_path = Path(args.model).expanduser()
     image_path = Path(args.source).expanduser()
+    has_display = sys.platform == "darwin" or bool(
+        os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")
+    )
 
     if not model_path.is_file():
         raise FileNotFoundError(f"未找到模型文件：{model_path}")
@@ -83,17 +87,19 @@ def main() -> None:
         else:
             print(" - 未检测到目标。")
 
-        annotated = result.plot()  # 绘制检测框后的图像（BGR）
-        window_name = f"result_{idx + 1}"
-        cv2.imshow(window_name, annotated)
+        if has_display:
+            annotated = result.plot()  # 绘制检测框后的图像（BGR）
+            window_name = f"result_{idx + 1}"
+            cv2.imshow(window_name, annotated)
 
     print("时间消耗清单:")
     print(f" - 模型加载: {load_elapsed * 1000:.2f} ms")
     print(f" - 预热推理: {warmup_elapsed * 1000:.2f} ms")
     print(f" - 稳定推理: {elapsed * 1000:.2f} ms")
-    print("按任意键关闭窗口。")
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    if has_display:
+        print("按任意键关闭窗口。")
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
