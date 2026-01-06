@@ -4,6 +4,7 @@ import time
 from pathlib import Path
 
 import cv2
+import torch
 from ultralytics import YOLO
 
 try:
@@ -28,6 +29,16 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def get_compute_device() -> str:
+    if torch.cuda.is_available():
+        device_index = torch.cuda.current_device()
+        device_name = torch.cuda.get_device_name(device_index)
+        return f"GPU: {device_name} (cuda:{device_index})"
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "GPU: Apple MPS"
+    return "CPU"
+
+
 def main() -> None:
     args = parse_args()
     model_path = Path(args.model).expanduser()
@@ -39,6 +50,7 @@ def main() -> None:
         raise FileNotFoundError(f"未找到图片文件：{image_path}")
 
     model = YOLO(str(model_path))
+    print(f"当前算力: {get_compute_device()}")
     start_time = time.perf_counter()
     results = model(str(image_path))
     elapsed = time.perf_counter() - start_time
