@@ -57,9 +57,14 @@ def main() -> None:
     if not image_path.is_file():
         raise FileNotFoundError(f"未找到图片文件：{image_path}")
 
+    load_start = time.perf_counter()
     model = YOLO(str(model_path))
+    load_elapsed = time.perf_counter() - load_start
     print(f"当前算力: {get_compute_device()}")
+    warmup_start = time.perf_counter()
     _ = model(str(image_path))  # 预热，避免首次推理开销影响计时
+    synchronize_device()
+    warmup_elapsed = time.perf_counter() - warmup_start
     synchronize_device()
     start_time = time.perf_counter()
     results = model(str(image_path))
@@ -82,7 +87,10 @@ def main() -> None:
         window_name = f"result_{idx + 1}"
         cv2.imshow(window_name, annotated)
 
-    print(f"模型推理耗时：{elapsed * 1000:.2f} ms")
+    print("时间消耗清单:")
+    print(f" - 模型加载: {load_elapsed * 1000:.2f} ms")
+    print(f" - 预热推理: {warmup_elapsed * 1000:.2f} ms")
+    print(f" - 稳定推理: {elapsed * 1000:.2f} ms")
     print("按任意键关闭窗口。")
     cv2.waitKey(0)
     cv2.destroyAllWindows()
