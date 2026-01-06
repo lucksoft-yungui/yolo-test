@@ -39,6 +39,14 @@ def get_compute_device() -> str:
     return "CPU"
 
 
+def synchronize_device() -> None:
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+        return
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        torch.mps.synchronize()
+
+
 def main() -> None:
     args = parse_args()
     model_path = Path(args.model).expanduser()
@@ -51,8 +59,11 @@ def main() -> None:
 
     model = YOLO(str(model_path))
     print(f"当前算力: {get_compute_device()}")
+    _ = model(str(image_path))  # 预热，避免首次推理开销影响计时
+    synchronize_device()
     start_time = time.perf_counter()
     results = model(str(image_path))
+    synchronize_device()
     elapsed = time.perf_counter() - start_time
 
     for idx, result in enumerate(results):
