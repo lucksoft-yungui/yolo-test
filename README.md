@@ -43,8 +43,9 @@ python main.py
 - 数据集配置：`train.py --data <name_or_yaml>`，可传数据集名（如 `labcoat`）自动匹配 `datasets/labcoat/labcoat.yaml`，也可直接传 yaml 路径。
 - 也可直接指定配置文件：`train.py --file play-phone-kaggle.yaml`，优先于 `--data`。
 - 模型输出：默认写入 `model/<数据集名>/`，可用 `--project` 自定义根目录、`--name` 自定义 run 名。
-- 基本示例：`python train.py --data labcoat --epochs 5 --imgsz 640`
+- 基本示例：`uv run python train.py --data labcoat --epochs 5 --imgsz 640`
 - 断点恢复：`--resume` 自动寻找最近的 `last.pt`，或用 `--checkpoint path/to/last.pt` 指定。
+- Early stopping：`--patience 10`（验证集指标 10 个 epoch 无提升则提前停止）。
 - 硬件检测：自动检测 MPS/CUDA/CPU 并提示当前训练设备。
 
 ## 微调
@@ -63,7 +64,7 @@ yolo train \
 通用视频验证脚本：加载模型对视频进行检测并绘制目标框。
 
 ```bash
-python val/video-val.py \
+uv run python val/video-val.py \
   --model model/fire-store/weights/best.pt \
   --video videos/shoe.mp4
 ```
@@ -71,3 +72,24 @@ python val/video-val.py \
 可选参数：
 - `--conf` 置信度阈值，默认 0.6
 - `--device` 指定设备（如 `cpu` / `cuda` / `mps`）
+
+## RTSP 负样本录制
+
+用于从 RTSP 流录制“无目标”的负样本视频，默认保存到 `videos/`。
+
+```bash
+uv run python rtsp_record_negative.py \
+  --url "rtsp://admin:luck2024@162.1.1.102:554/Streaming/Channels/1"
+```
+
+常用参数：
+- `--output videos/neg_xxx.mp4` 指定输出路径
+- `--duration 60` 录制 60 秒自动停止（0 表示手动停止）
+- `--no-show` 后台录制不弹窗
+- `--codec mp4v` / `--fps 25` 设置编码和帧率
+
+## 训练
+
+```
+uv run python train.py --file fire-store.yaml --epochs 50 --imgsz 640 --patience 10
+```

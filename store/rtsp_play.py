@@ -1,18 +1,19 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-import json
 from queue import Empty, Full, Queue
 from typing import Dict, Optional, Tuple
 
 import cv2
 from PySide6 import QtCore, QtGui, QtWidgets
 from ultralytics import YOLO
+import yaml
 
 DEFAULT_MODEL = "yolo11n.pt"
 
@@ -170,6 +171,10 @@ class SharedState:
     excluded_items: set[str] = field(default_factory=set)
     whitelist: Dict[str, "WhitelistEntry"] = field(default_factory=dict)
     model_path: str = ""
+    dataset_path: str = ""
+    class_names: list[str] = field(default_factory=list)
+    class_version: int = 0
+    reload_token: int = 0
     locked: bool = False
     manual_override: bool = False
     last_action: Optional[str] = None
@@ -182,6 +187,17 @@ class SharedState:
     def whitelist_snapshot(self) -> Dict[str, "WhitelistEntry"]:
         with self.lock:
             return {name: entry.copy() for name, entry in self.whitelist.items()}
+
+    def update_class_names(self, names: list[str]) -> None:
+        with self.lock:
+            if names == self.class_names:
+                return
+            self.class_names = list(names)
+            self.class_version += 1
+
+    def request_reload(self) -> None:
+        with self.lock:
+            self.reload_token += 1
 
     def merged_items(self) -> Dict[str, int]:
         merged = dict(self.auto_items)
@@ -201,6 +217,7 @@ class SharedState:
         with self.lock:
             payload = {
                 "model_path": self.model_path,
+                "dataset_path": self.dataset_path,
                 "whitelist": {
                     name: {
                         "enabled": entry.enabled,
@@ -224,6 +241,7 @@ class SharedState:
         except (OSError, json.JSONDecodeError):
             return
         model_path = payload.get("model_path", "")
+        dataset_path = payload.get("dataset_path", "")
         whitelist = {}
         for name, data in (payload.get("whitelist") or {}).items():
             if not isinstance(data, dict):
@@ -236,6 +254,7 @@ class SharedState:
         with self.lock:
             self.whitelist = whitelist
             self.model_path = str(model_path or "")
+            self.dataset_path = str(dataset_path or "")
 
 
 @dataclass
@@ -286,9 +305,35 @@ def video_loop(
     attempts = 0
     cap = open_capture(url)
     annotator = AsyncAnnotator(model, conf_threshold, state.whitelist_snapshot)
+    with state.lock:
+        last_reload_token = state.reload_token
 
     try:
         while state.running and attempts <= reconnect:
+            with state.lock:
+                reload_token = state.reload_token
+                model_path = state.model_path
+                dataset_path = state.dataset_path
+            if reload_token != last_reload_token:
+                last_reload_token = reload_token
+                model_input = model_path or DEFAULT_MODEL
+                model_candidate = Path(model_input).expanduser()
+                if model_candidate.is_file():
+                    model_source = str(model_candidate)
+                else:
+                    model_source = model_input
+                try:
+                    new_model = YOLO(model_source)
+                except Exception as exc:
+                    print(f"模型加载失败：{exc}")
+                else:
+                    annotator.stop()
+                    annotator = AsyncAnnotator(new_model, conf_threshold, state.whitelist_snapshot)
+                    class_names = load_dataset_names(dataset_path)
+                    if not class_names and hasattr(new_model, "names") and isinstance(new_model.names, dict):
+                        class_names = sorted({str(name) for name in new_model.names.values()})
+                    state.update_class_names(class_names)
+
             if cap is None:
                 attempts += 1
                 if attempts > reconnect:
@@ -330,6 +375,26 @@ def frame_to_qimage(frame: cv2.Mat, target_width: int) -> Optional[QtGui.QImage]
     return image.copy()
 
 
+def load_dataset_names(dataset_path: str) -> list[str]:
+    if not dataset_path:
+        return []
+    path = Path(dataset_path).expanduser()
+    if not path.exists():
+        return []
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return []
+    if not isinstance(data, dict):
+        return []
+    names = data.get("names")
+    if isinstance(names, dict):
+        return sorted({str(name) for name in names.values()})
+    if isinstance(names, list):
+        return [str(name) for name in names if name is not None]
+    return []
+
+
 class ItemTable(QtWidgets.QTableWidget):
     def __init__(self, parent_window: "WarehouseWindow"):
         super().__init__(0, 2, parent_window)
@@ -359,6 +424,7 @@ class WarehouseWindow(QtWidgets.QMainWindow):
         self.rendered_whitelist: Dict[str, Tuple[bool, str, Optional[float]]] = {}
         self.qty_input_buffer = ""
         self.qty_input_ts = 0.0
+        self.class_version = -1
 
         self.setWindowTitle("仓储出入库识别")
         self.setMinimumSize(1200, 700)
@@ -455,9 +521,19 @@ class WarehouseWindow(QtWidgets.QMainWindow):
         browse_btn = QtWidgets.QPushButton("浏览")
         browse_btn.clicked.connect(self.browse_model_path)
         model_layout.addWidget(browse_btn, 0, 2)
+
+        model_layout.addWidget(QtWidgets.QLabel("数据集配置"), 1, 0)
+        self.dataset_path_input = QtWidgets.QLineEdit()
+        with self.state.lock:
+            self.dataset_path_input.setText(self.state.dataset_path)
+        model_layout.addWidget(self.dataset_path_input, 1, 1)
+        browse_dataset_btn = QtWidgets.QPushButton("浏览")
+        browse_dataset_btn.clicked.connect(self.browse_dataset_path)
+        model_layout.addWidget(browse_dataset_btn, 1, 2)
+
         save_model_btn = QtWidgets.QPushButton("保存模型配置")
         save_model_btn.clicked.connect(self.save_model_path)
-        model_layout.addWidget(save_model_btn, 1, 1, 1, 2)
+        model_layout.addWidget(save_model_btn, 2, 1, 1, 2)
 
         whitelist_title = QtWidgets.QLabel("类别白名单")
         whitelist_title.setStyleSheet("font-weight:600;")
@@ -542,12 +618,25 @@ class WarehouseWindow(QtWidgets.QMainWindow):
         if path:
             self.model_path_input.setText(path)
 
+    def browse_dataset_path(self) -> None:
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            "选择数据集配置文件",
+            "",
+            "数据集配置 (*.yaml *.yml);;所有文件 (*.*)",
+        )
+        if path:
+            self.dataset_path_input.setText(path)
+
     def save_model_path(self) -> None:
         path = self.model_path_input.text().strip()
+        dataset_path = self.dataset_path_input.text().strip()
         with self.state.lock:
             self.state.model_path = path
+            self.state.dataset_path = dataset_path
         self.state.save_config()
-        self.notice_label.setText("已保存模型配置，重启后生效。")
+        self.state.request_reload()
+        self.notice_label.setText("已保存模型配置，正在重新加载。")
 
     def sync_inputs_from_selection(self) -> None:
         selected = self.table.selectionModel().selectedRows()
@@ -688,6 +777,8 @@ class WarehouseWindow(QtWidgets.QMainWindow):
             manual_override = self.state.manual_override
             last_action = self.state.last_action
             whitelist = {name: entry.copy() for name, entry in self.state.whitelist.items()}
+            class_names = list(self.state.class_names)
+            class_version = self.state.class_version
 
         if frame is not None:
             image = frame_to_qimage(frame, self.display_width)
@@ -751,6 +842,16 @@ class WarehouseWindow(QtWidgets.QMainWindow):
                         break
             self.rendered_whitelist = whitelist_render
 
+        if class_version != self.class_version:
+            current_text = self.class_combo.currentText()
+            self.class_combo.blockSignals(True)
+            self.class_combo.clear()
+            self.class_combo.addItems(class_names)
+            if current_text:
+                self.class_combo.setCurrentText(current_text)
+            self.class_combo.blockSignals(False)
+            self.class_version = class_version
+
         if locked:
             action_text = last_action or "入库/出库"
             self.status_label.setText(f"识别状态：已锁定（{action_text}），等待画面清空")
@@ -780,9 +881,10 @@ def main() -> None:
             print(f"提示：未找到 {model_path}，尝试直接使用权重标识 {model_input}。")
     conf_threshold = max(args.conf, 0.6)
     model = YOLO(model_source)
-    class_names = []
-    if hasattr(model, "names") and isinstance(model.names, dict):
+    class_names = load_dataset_names(state.dataset_path)
+    if not class_names and hasattr(model, "names") and isinstance(model.names, dict):
         class_names = sorted({str(name) for name in model.names.values()})
+    state.update_class_names(class_names)
 
     worker = threading.Thread(
         target=video_loop,

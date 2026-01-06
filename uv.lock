@@ -1025,6 +1025,7 @@ dependencies = [
     { name = "numpy" },
     { name = "opencv-python-headless" },
     { name = "pyside6" },
+    { name = "pyyaml" },
     { name = "ultralytics" },
 ]
 
@@ -1033,5 +1034,6 @@ requires-dist = [
     { name = "numpy", specifier = "==1.26.4" },
     { name = "opencv-python-headless", specifier = ">=4.8.0.74" },
     { name = "pyside6", specifier = ">=6.7.0" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "ultralytics", specifier = ">=8.3.0,<8.4.0" },
 ]

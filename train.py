@@ -47,6 +47,7 @@ def parse_args():
     )
     parser.add_argument("--epochs", type=int, default=100, help="训练轮次")
     parser.add_argument("--imgsz", type=int, default=640, help="输入图片尺寸")
+    parser.add_argument("--patience", type=int, default=50, help="Early stopping patience (epoch 数)")
     parser.add_argument("--resume", action="store_true", help="从最近一次训练断点恢复")
     parser.add_argument("--checkpoint", type=str, help="指定断点权重文件 (last.pt) 路径")
     parser.add_argument("--runs-dir", type=str, help="训练输出目录（默认为 project 设置）")
@@ -118,6 +119,7 @@ def main():
             data=str(data_path),
             epochs=args.epochs,
             imgsz=args.imgsz,
+            patience=args.patience,
         )
 
     train_kwargs["project"] = str(project)

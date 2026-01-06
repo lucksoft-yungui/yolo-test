@@ -1,7 +1,7 @@
 # Auto-generated YOLO dataset config for shoes + helmet
 path: datasets/fire-store
 train: images/train
-val: images/train  # 如有验证集可改为 images/val
+val: images/val  # 如有验证集可改为 images/val
 
 names:
   0: shoes
