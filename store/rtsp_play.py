@@ -468,6 +468,7 @@ class WarehouseWindow(QtWidgets.QMainWindow):
         self.whitelist_table.horizontalHeader().setStretchLastSection(True)
         self.whitelist_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.whitelist_table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.whitelist_table.itemSelectionChanged.connect(self.sync_whitelist_inputs)
         config_layout.addWidget(self.whitelist_table, stretch=1)
 
         whitelist_form = QtWidgets.QWidget()
@@ -588,6 +589,31 @@ class WarehouseWindow(QtWidgets.QMainWindow):
         self.notice_label.setText(f"已更新 {name} 数量为 {qty}")
         self.table.setFocus()
 
+    def sync_whitelist_inputs(self) -> None:
+        selected = self.whitelist_table.selectionModel().selectedRows()
+        if not selected:
+            return
+        row = selected[0].row()
+        name_item = self.whitelist_table.item(row, 0)
+        alias_item = self.whitelist_table.item(row, 1)
+        threshold_item = self.whitelist_table.item(row, 2)
+        enabled_item = self.whitelist_table.item(row, 3)
+        if name_item is None:
+            return
+        self.class_combo.setCurrentText(name_item.text())
+        self.alias_input.setText("" if alias_item is None or alias_item.text() == "-" else alias_item.text())
+        threshold_text = "" if threshold_item is None else threshold_item.text()
+        if threshold_text in ("", "-"):
+            self.threshold_checkbox.setChecked(False)
+        else:
+            self.threshold_checkbox.setChecked(True)
+            try:
+                self.threshold_spin.setValue(float(threshold_text))
+            except ValueError:
+                pass
+        if enabled_item is not None:
+            self.enable_checkbox.setChecked(enabled_item.text() != "否")
+
     def add_or_update_whitelist(self) -> None:
         class_name = self.class_combo.currentText().strip()
         if not class_name:
@@ -645,6 +671,9 @@ class WarehouseWindow(QtWidgets.QMainWindow):
             if not self.state.merged_items():
                 self.notice_label.setText("当前无清单可操作。")
                 return
+            self.state.auto_items = {}
+            self.state.manual_items = {}
+            self.state.excluded_items = set()
             self.state.locked = True
             self.state.manual_override = True
             self.state.last_action = action
@@ -694,6 +723,13 @@ class WarehouseWindow(QtWidgets.QMainWindow):
             name: (entry.enabled, entry.alias, entry.threshold) for name, entry in whitelist.items()
         }
         if whitelist_render != self.rendered_whitelist:
+            selected_name = None
+            selected_rows = self.whitelist_table.selectionModel().selectedRows()
+            if selected_rows:
+                row = selected_rows[0].row()
+                name_item = self.whitelist_table.item(row, 0)
+                if name_item is not None:
+                    selected_name = name_item.text()
             self.whitelist_table.setRowCount(0)
             for name, entry in sorted(whitelist.items()):
                 row = self.whitelist_table.rowCount()
@@ -705,6 +741,14 @@ class WarehouseWindow(QtWidgets.QMainWindow):
                 self.whitelist_table.setItem(row, 2, QtWidgets.QTableWidgetItem(threshold_text))
                 enabled_text = "是" if entry.enabled else "否"
                 self.whitelist_table.setItem(row, 3, QtWidgets.QTableWidgetItem(enabled_text))
+            if selected_name:
+                for row in range(self.whitelist_table.rowCount()):
+                    name_item = self.whitelist_table.item(row, 0)
+                    if name_item is not None and name_item.text() == selected_name:
+                        self.whitelist_table.setCurrentCell(row, 0)
+                        self.whitelist_table.selectRow(row)
+                        self.whitelist_table.setFocus()
+                        break
             self.rendered_whitelist = whitelist_render
 
         if locked:
