@@ -117,6 +117,20 @@ uv run python http_play.py \
 - `--reconnect` 读取失败时重连次数
 - `--wait` 重连前等待秒数
 
+## HTTP 流媒体录制
+
+将 HTTP 流媒体录制为 MP4 文件，默认保存到 `videos/`。
+
+```bash
+uv run python http_record.py \
+  --url "http://ai-tim.zju-qz.edu.cn/media0/proxy/ipc-hg7i64qn.live.flv" \
+  --output-dir videos
+```
+
+参数：
+- `--url` HTTP 流媒体地址
+- `--output-dir` 输出目录（默认 `videos`）
+
 ## 训练
 
 ```
