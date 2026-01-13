@@ -16,6 +16,14 @@ from ultralytics import YOLO
 import yaml
 
 DEFAULT_MODEL = "yolo11n.pt"
+DEBUG = False
+
+
+def dlog(message: str) -> None:
+    if not DEBUG:
+        return
+    ts = time.strftime("%H:%M:%S")
+    print(f"[DEBUG {ts}] {message}", flush=True)
 
 
 def parse_args() -> argparse.Namespace:
@@ -29,7 +37,7 @@ def parse_args() -> argparse.Namespace:
         "--conf",
         type=float,
         default=0.5,
-        help="最小置信度阈值，低于该值的检测将被过滤，且不会低于 0.6。",
+        help="最小置信度阈值，低于该值的检测将被过滤。",
     )
     parser.add_argument(
         "--url",
@@ -66,6 +74,17 @@ def parse_args() -> argparse.Namespace:
         default=120,
         help="UI 刷新间隔（毫秒）",
     )
+    parser.add_argument(
+        "--whitelist-threshold",
+        type=float,
+        default=0.6,
+        help="白名单阈值输入框的默认值。",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="输出调试日志（用于排查画框/清单逻辑）",
+    )
     return parser.parse_args()
 
 
@@ -91,6 +110,8 @@ class AsyncAnnotator:
         self.latest = None
         self.latest_counts: Dict[str, int] = {}
         self.latest_has_objects = False
+        self._last_debug_ts = 0.0
+        self._last_debug_boxes = -1
         self.running = True
         self.lock = threading.Lock()
         self.worker = threading.Thread(target=self._loop, daemon=True)
@@ -158,6 +179,26 @@ class AsyncAnnotator:
             results = self.model(frame, conf=self.conf_threshold, verbose=False)
             annotated = results[0].plot() if results else frame
             counts = self._extract_counts(results)
+            if DEBUG:
+                now = time.time()
+                boxes_len = 0
+                max_conf = None
+                if results and results[0].boxes is not None and len(results[0].boxes) > 0:
+                    boxes_len = len(results[0].boxes)
+                    try:
+                        max_conf = max(results[0].boxes.conf.tolist())
+                    except Exception:
+                        max_conf = None
+                should_log = (now - self._last_debug_ts) >= 1.0 or boxes_len != self._last_debug_boxes
+                if should_log:
+                    self._last_debug_ts = now
+                    self._last_debug_boxes = boxes_len
+                    max_conf_text = "-" if max_conf is None else f"{max_conf:.2f}"
+                    dlog(
+                        "推理结果："
+                        f"conf_th={self.conf_threshold:.2f} boxes={boxes_len} max_conf={max_conf_text} "
+                        f"counts={counts}"
+                    )
             with self.lock:
                 self.latest = annotated
                 self.latest_counts = counts
@@ -424,6 +465,7 @@ class WarehouseWindow(QtWidgets.QMainWindow):
         ui_interval_ms: int,
         display_width: int,
         class_names: list[str],
+        whitelist_threshold_default: float,
     ):
         super().__init__()
         self.state = state
@@ -596,7 +638,7 @@ class WarehouseWindow(QtWidgets.QMainWindow):
         self.threshold_spin = QtWidgets.QDoubleSpinBox()
         self.threshold_spin.setRange(0.0, 1.0)
         self.threshold_spin.setSingleStep(0.05)
-        self.threshold_spin.setValue(0.6)
+        self.threshold_spin.setValue(whitelist_threshold_default)
         self.threshold_spin.setEnabled(False)
         whitelist_layout.addWidget(self.threshold_spin, 3, 1)
         self.threshold_checkbox.toggled.connect(self.threshold_spin.setEnabled)
@@ -895,6 +937,9 @@ class WarehouseWindow(QtWidgets.QMainWindow):
 
 def main() -> None:
     args = parse_args()
+    global DEBUG
+    DEBUG = bool(args.debug)
+    dlog("调试日志已开启")
 
     config_path = Path(".config") / "warehouse_whitelist.json"
     state = SharedState(config_path=config_path)
@@ -911,7 +956,7 @@ def main() -> None:
         model_source = model_input
         if len(model_path.parts) > 1:
             print(f"提示：未找到 {model_path}，尝试直接使用权重标识 {model_input}。")
-    conf_threshold = max(args.conf, 0.6)
+    conf_threshold = args.conf
     model = YOLO(model_source)
     class_names = load_dataset_names(state.dataset_path)
     if not class_names and hasattr(model, "names") and isinstance(model.names, dict):
@@ -926,7 +971,13 @@ def main() -> None:
     worker.start()
 
     app = QtWidgets.QApplication(sys.argv)
-    window = WarehouseWindow(state, args.ui_interval, args.display_width, class_names)
+    window = WarehouseWindow(
+        state,
+        args.ui_interval,
+        args.display_width,
+        class_names,
+        args.whitelist_threshold,
+    )
     window.show()
     sys.exit(app.exec())
 

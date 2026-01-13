@@ -88,6 +88,35 @@ uv run python rtsp_record_negative.py \
 - `--no-show` 后台录制不弹窗
 - `--codec mp4v` / `--fps 25` 设置编码和帧率
 
+## RTSP 录制为 MP4
+
+将 RTSP 流直接录制为 MP4 文件，默认保存到 `videos/`。
+
+```bash
+uv run python rtsp_record.py \
+  --url "rtsp://admin:luck2024@162.1.1.102:554/Streaming/Channels/1" \
+  --output-dir videos
+```
+
+参数：
+- `--url` RTSP 流地址
+- `--output-dir` 输出目录（默认 `videos`）
+
+## HTTP 流媒体播放
+
+用于播放 HTTP/FLV 等流媒体地址（OpenCV + FFmpeg）。
+
+```bash
+uv run python http_play.py \
+  --url "http://ai-tim.zju-qz.edu.cn/media0/proxy/ipc-hg7i64qn.live.flv"
+```
+
+参数：
+- `--url` HTTP 流媒体地址
+- `--window` 窗口名称
+- `--reconnect` 读取失败时重连次数
+- `--wait` 重连前等待秒数
+
 ## 训练
 
 ```

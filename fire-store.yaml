@@ -6,3 +6,4 @@ val: images/val  # 如有验证集可改为 images/val
 names:
   0: shoes
   1: helmet
+  2: flashlight
