@@ -3,11 +3,28 @@
 ## 功能简介
 - 订阅 `fire-alarm` 主题，按批次拉取消息并批量推理。
 - 将消息中的图片合并推理，命中烟火类别则打印。
+- 命中烟火后推送报警消息到 `alarm-queue` 主题（可配置）。
 
 ## 消息格式
 ```json
 [
-  {"deviceId": "uuid", "photoPath": "/abs/path/to/image.jpg"}
+  {
+    "deviceId": "uuid",
+    "areaId": "uuid",
+    "photoPath": "/abs/path/to/image.jpg"
+  }
+]
+```
+
+## 报警消息格式
+```json
+[
+  {
+    "topic": "fire-alarm",
+    "deviceId": "uuid",
+    "areaId": "uuid",
+    "photoPath": "/abs/path/to/image.jpg"
+  }
 ]
 ```
 
@@ -21,12 +38,14 @@ uv add kafka-python
 uv run python kafuka/fire_alarm_consumer.py \
   --bootstrap-servers localhost:9092 \
   --topic fire-alarm \
+  --alarm-topic alarm-queue \
   --batch-size 10 \
   --model model/fire-kaggle/weights/best.pt
 
  uv run python kafuka/fire_alarm_consumer.py \
   --bootstrap-servers 10.10.6.13:9092 \
   --topic fire-alarm \
+  --alarm-topic alarm-queue \
   --batch-size 10 \
   --model model/fire-kaggle/weights/best.pt 
 ```
@@ -54,10 +73,12 @@ uv run python kafuka/fire_alarm_producer.py \
 - `--image-dir` 图片目录（递归收集 `.jpg`）
 - `--limit` 限制发送数量，0 表示不限制
 - `--device-id` 固定 deviceId（不填则每条随机）
+- `--area-id` 固定 areaId（不填则不发送）
 
 ## 参数说明
 - `--bootstrap-servers` Kafka 地址，默认 `localhost:9092`
 - `--topic` 主题名，默认 `fire-alarm`
+- `--alarm-topic` 报警消息推送主题，默认 `alarm-queue`
 - `--group-id` 消费者组 ID
 - `--batch-size` 单次拉取数量
 - `--max-wait-sec` 等待凑满批次的最长时间

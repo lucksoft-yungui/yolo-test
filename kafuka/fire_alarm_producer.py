@@ -45,6 +45,12 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="固定 deviceId，不填则每条消息随机生成",
     )
+    parser.add_argument(
+        "--area-id",
+        type=str,
+        default="",
+        help="固定 areaId，不填则不发送该字段",
+    )
     return parser.parse_args()
 
 
@@ -86,7 +92,10 @@ def main() -> None:
     try:
         for path in image_paths:
             device_id = args.device_id or str(uuid4())
-            payload = [{"deviceId": device_id, "photoPath": str(path)}]
+            item = {"deviceId": device_id, "photoPath": str(path)}
+            if args.area_id:
+                item["areaId"] = args.area_id
+            payload = [item]
             producer.send(args.topic, json.dumps(payload).encode("utf-8"))
         producer.flush()
     finally:

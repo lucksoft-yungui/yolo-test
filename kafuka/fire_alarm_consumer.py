@@ -6,13 +6,14 @@ from pathlib import Path
 from typing import Iterable
 
 import cv2
-from kafka import KafkaConsumer
+from kafka import KafkaConsumer, KafkaProducer
 from ultralytics import YOLO
 
 
 @dataclass
 class AlarmMessage:
     device_id: str
+    area_id: str
     photo_path: str
 
 
@@ -29,6 +30,12 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="fire-alarm",
         help="Kafka 主题，默认 fire-alarm",
+    )
+    parser.add_argument(
+        "--alarm-topic",
+        type=str,
+        default="alarm-queue",
+        help="报警消息推送主题，默认 alarm-queue",
     )
     parser.add_argument(
         "--group-id",
@@ -116,10 +123,11 @@ def decode_messages(raw: str) -> list[AlarmMessage]:
         if not isinstance(item, dict):
             continue
         device_id = str(item.get("deviceId", "")).strip()
+        area_id = str(item.get("areaId", "")).strip()
         photo_path = str(item.get("photoPath", "")).strip()
         if not device_id or not photo_path:
             continue
-        results.append(AlarmMessage(device_id=device_id, photo_path=photo_path))
+        results.append(AlarmMessage(device_id=device_id, area_id=area_id, photo_path=photo_path))
     return results
 
 
@@ -169,6 +177,7 @@ def main() -> None:
         auto_offset_reset=args.auto_offset_reset,
         value_deserializer=lambda v: v,
     )
+    producer = KafkaProducer(bootstrap_servers=args.bootstrap_servers)
 
     print(
         f"开始订阅 {args.bootstrap_servers} / {args.topic}，批量 {args.batch_size} 条，模型 {args.model}，"
@@ -211,6 +220,18 @@ def main() -> None:
                     has_fire = True
                     break
             if has_fire:
+                alarm_payload = [
+                    {
+                        "topic": args.topic,
+                        "deviceId": entry.device_id,
+                        "areaId": entry.area_id,
+                        "photoPath": entry.photo_path,
+                    }
+                ]
+                producer.send(
+                    args.alarm_topic,
+                    json.dumps(alarm_payload).encode("utf-8"),
+                )
                 print(
                     f"检测到烟火: deviceId={entry.device_id}, photoPath={entry.photo_path}",
                     flush=True,
@@ -228,6 +249,7 @@ def main() -> None:
             f"耗时: {elapsed_sec:.2f}s",
             flush=True,
         )
+        producer.flush()
         consumer.commit()
         if args.max_batches > 0 and batch_count >= args.max_batches:
             print("已达到最大批次限制，退出。", flush=True)
