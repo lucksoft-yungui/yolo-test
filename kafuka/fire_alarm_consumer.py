@@ -80,6 +80,12 @@ def parse_args() -> argparse.Namespace:
         help="指定设备，例如 cpu / cuda / mps，不填则自动选择",
     )
     parser.add_argument(
+        "--gpu",
+        type=int,
+        default=-1,
+        help="指定 GPU 序号（如 0），仅在未指定 --device 时生效",
+    )
+    parser.add_argument(
         "--fire-class",
         type=str,
         default="fire",
@@ -149,7 +155,10 @@ def iter_images(entries: Iterable[AlarmMessage]) -> tuple[list[AlarmMessage], li
 
 def main() -> None:
     args = parse_args()
-    model = load_model(args.model, args.device, [args.fire_class])
+    device = args.device
+    if device is None and args.gpu >= 0:
+        device = f"cuda:{args.gpu}"
+    model = load_model(args.model, device, [args.fire_class])
     fire_index = 0
 
     consumer = KafkaConsumer(
