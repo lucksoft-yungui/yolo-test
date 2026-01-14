@@ -22,6 +22,18 @@ def parse_args() -> argparse.Namespace:
         default="videos",
         help="输出目录，默认保存到 videos/ 目录",
     )
+    parser.add_argument(
+        "--preview",
+        action="store_true",
+        default=True,
+        help="显示视频画面（默认开启）",
+    )
+    parser.add_argument(
+        "--no-preview",
+        action="store_false",
+        dest="preview",
+        help="关闭画面显示",
+    )
     return parser.parse_args()
 
 
@@ -133,7 +145,7 @@ def prepare_writer(
     return writer
 
 
-def record_stream(url: str, output_dir: str) -> None:
+def record_stream(url: str, output_dir: str, preview: bool) -> None:
     profile = detect_hardware_profile()
     auto_cfg = auto_tune(profile)
 
@@ -165,15 +177,23 @@ def record_stream(url: str, output_dir: str) -> None:
                 print(f"开始录制: {output_path} (fps={fps:.2f}, size={frame_size})")
 
             writer.write(frame)
+            if preview:
+                cv2.imshow("RTSP Preview", frame)
+                key = cv2.waitKey(1) & 0xFF
+                if key in (27, ord("q")):
+                    print("收到退出指令，停止录制。")
+                    break
     finally:
         cap.release()
         if writer is not None:
             writer.release()
+        if preview:
+            cv2.destroyAllWindows()
 
 
 def main() -> None:
     args = parse_args()
-    record_stream(args.url, args.output_dir)
+    record_stream(args.url, args.output_dir, args.preview)
 
 
 if __name__ == "__main__":

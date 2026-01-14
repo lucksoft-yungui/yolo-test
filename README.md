@@ -96,6 +96,10 @@ uv run python rtsp_record_negative.py \
 uv run python rtsp_record.py \
   --url "rtsp://admin:luck2024@162.1.1.102:554/Streaming/Channels/1" \
   --output-dir videos
+
+uv run python rtsp_record.py \
+  --url "rtsp://admin:abcd1234@10.0.114.75:554/cam/realmonitor?channel=1&subtype=0" \
+  --output-dir videos
 ```
 
 参数：
