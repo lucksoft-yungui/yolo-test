@@ -163,6 +163,7 @@ def iter_images(entries: Iterable[AlarmMessage]) -> tuple[list[AlarmMessage], li
 
 def main() -> None:
     args = parse_args()
+    print(f"运行参数: {vars(args)}", flush=True)
     device = args.device
     if device is None and args.gpu >= 0:
         device = f"cuda:{args.gpu}"
