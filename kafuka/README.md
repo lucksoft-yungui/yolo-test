@@ -23,7 +23,37 @@ uv run python kafuka/fire_alarm_consumer.py \
   --topic fire-alarm \
   --batch-size 10 \
   --model model/fire-kaggle/weights/best.pt
+
+ uv run python kafuka/fire_alarm_consumer.py \
+  --bootstrap-servers 10.10.6.13:9092 \
+  --topic fire-alarm \
+  --batch-size 10 \
+  --model model/fire-kaggle/weights/best.pt 
 ```
+
+## 手动推送消息
+
+用于向 Kafka 主题手动推送图片消息（只推送，不消费）。
+
+```bash
+uv run python kafuka/fire_alarm_producer.py \
+  --bootstrap-servers localhost:9092 \
+  --topic fire-alarm \
+  --image-dir datasets/fire/images \
+  --limit 23
+
+uv run python kafuka/fire_alarm_producer.py \
+  --bootstrap-servers 10.10.6.13:9092 \
+  --topic fire-alarm \
+  --image-dir datasets/fire/images \
+  --limit 23
+```
+
+参数说明：
+- `--image` 指定单张图片路径，可多次传入
+- `--image-dir` 图片目录（递归收集 `.jpg`）
+- `--limit` 限制发送数量，0 表示不限制
+- `--device-id` 固定 deviceId（不填则每条随机）
 
 ## 参数说明
 - `--bootstrap-servers` Kafka 地址，默认 `localhost:9092`
