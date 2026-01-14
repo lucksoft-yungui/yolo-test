@@ -16,6 +16,8 @@ from kafka.errors import TopicAlreadyExistsError
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CONSUMER_SCRIPT = PROJECT_ROOT / "kafuka" / "fire_alarm_consumer.py"
 MODEL_PATH = PROJECT_ROOT / "model" / "fire-kaggle" / "weights" / "best.pt"
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "fire-alarm")
 
 
 class KafkaFireAlarmIntegrationTests(unittest.TestCase):
@@ -24,13 +26,13 @@ class KafkaFireAlarmIntegrationTests(unittest.TestCase):
             self.skipTest(f"模型文件不存在: {MODEL_PATH}")
 
         try:
-            self.admin = KafkaAdminClient(bootstrap_servers="localhost:9092")
-            self.producer = KafkaProducer(bootstrap_servers="localhost:9092")
+            self.admin = KafkaAdminClient(bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS)
+            self.producer = KafkaProducer(bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS)
         except NoBrokersAvailable:
-            self.skipTest("Kafka 未运行在 localhost:9092")
+            self.skipTest(f"Kafka 未运行在 {KAFKA_BOOTSTRAP_SERVERS}")
 
         try:
-            self.admin.create_topics([NewTopic(name="fire-alarm", num_partitions=1, replication_factor=1)])
+            self.admin.create_topics([NewTopic(name=KAFKA_TOPIC, num_partitions=1, replication_factor=1)])
         except TopicAlreadyExistsError:
             pass
 
@@ -69,13 +71,13 @@ class KafkaFireAlarmIntegrationTests(unittest.TestCase):
             self.skipTest("datasets/fire 图片数量不足 23 张")
         image_paths = image_paths[:23]
 
-        topic = "fire-alarm"
+        topic = KAFKA_TOPIC
         process = subprocess.Popen(
             [
                 sys.executable,
                 str(CONSUMER_SCRIPT),
                 "--bootstrap-servers",
-                "localhost:9092",
+                KAFKA_BOOTSTRAP_SERVERS,
                 "--topic",
                 topic,
                 "--batch-size",

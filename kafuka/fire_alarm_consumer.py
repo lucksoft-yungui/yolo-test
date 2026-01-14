@@ -156,7 +156,7 @@ def main() -> None:
         args.topic,
         bootstrap_servers=args.bootstrap_servers,
         group_id=args.group_id,
-        enable_auto_commit=True,
+        enable_auto_commit=False,
         auto_offset_reset=args.auto_offset_reset,
         value_deserializer=lambda v: v,
     )
@@ -169,6 +169,7 @@ def main() -> None:
     batch_count = 0
     while True:
         print("等待拉取消息...", flush=True)
+        batch_start = time.monotonic()
         raw_messages = poll_batch(consumer, args.batch_size, args.max_wait_sec)
         print(f"拉取完成，原始消息数={len(raw_messages)}", flush=True)
         if not raw_messages:
@@ -212,10 +213,13 @@ def main() -> None:
                 )
 
         batch_count += 1
+        elapsed_sec = time.monotonic() - batch_start
         print(
-            f"处理批次: {batch_count}, 消息数: {len(raw_messages)}, 有效图片: {len(images)}",
+            f"处理批次: {batch_count}, 消息数: {len(raw_messages)}, 有效图片: {len(images)}, "
+            f"耗时: {elapsed_sec:.2f}s",
             flush=True,
         )
+        consumer.commit()
         if args.max_batches > 0 and batch_count >= args.max_batches:
             print("已达到最大批次限制，退出。", flush=True)
             break
