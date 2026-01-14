@@ -98,7 +98,7 @@ uv run python rtsp_record.py \
   --output-dir videos
 
 uv run python rtsp_record.py \
-  --url "rtsp://admin:abcd1234@10.0.114.75:554/cam/realmonitor?channel=1&subtype=0" \
+  --url "rtsp://admin:abcd1234@10.0.114.31:554/cam/realmonitor?channel=1&subtype=1" \
   --output-dir videos
 ```
 
