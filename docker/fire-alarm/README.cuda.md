@@ -17,15 +17,18 @@ docker build -t fire-alarm-consumer:cuda -f docker/fire-alarm/Dockerfile.cuda .
 
 ```bash
 docker run --rm --gpus all \
-  -e KAFKA_BOOTSTRAP_SERVERS=host.docker.internal:9092 \
+  --name firec \
+  --network host \
+  -e KAFKA_BOOTSTRAP_SERVERS=10.10.6.13:9092 \
   -e KAFKA_TOPIC=fire-alarm \
   -e KAFKA_ALARM_TOPIC=alarm-queue \
   -e KAFKA_GROUP_ID=fire-alarm-consumer \
   -e KAFKA_BATCH_SIZE=10 \
-  -e KAFKA_MAX_WAIT_SEC=2 \
+  -e KAFKA_MAX_WAIT_SEC=0 \
   -e KAFKA_AUTO_OFFSET_RESET=latest \
   -e MODEL_DEVICE=cuda \
   -e MODEL_GPU=0 \
+  -v /mnt/nfs/datasets:/mnt/nfs/datasets:ro \
   fire-alarm-consumer:cuda
 ```
 

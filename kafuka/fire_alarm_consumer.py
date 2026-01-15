@@ -112,6 +112,28 @@ def load_model(weight_path: Path, device: str | None, class_names: list[str]) ->
     return model
 
 
+def normalize_device_label(device_value: str) -> str:
+    device_value = device_value.lower()
+    if device_value.startswith("cuda"):
+        return "cuda"
+    if device_value.startswith("mps"):
+        return "mps"
+    if device_value.startswith("cpu"):
+        return "cpu"
+    return device_value
+
+
+def resolve_model_device(model: YOLO, requested_device: str | None) -> str:
+    if requested_device:
+        return normalize_device_label(requested_device)
+    detected_device = getattr(model, "device", None)
+    if detected_device is None and hasattr(model, "model"):
+        detected_device = getattr(model.model, "device", None)
+    if detected_device is None:
+        return "unknown"
+    return normalize_device_label(str(detected_device))
+
+
 def decode_messages(raw: str) -> list[AlarmMessage]:
     payload = json.loads(raw)
     if isinstance(payload, dict):
@@ -168,6 +190,8 @@ def main() -> None:
     if device is None and args.gpu >= 0:
         device = f"cuda:{args.gpu}"
     model = load_model(args.model, device, [args.fire_class])
+    device_label = resolve_model_device(model, device)
+    print(f"当前使用算力: {device_label}", flush=True)
     fire_index = 0
 
     consumer = KafkaConsumer(
@@ -188,7 +212,6 @@ def main() -> None:
     batch_count = 0
     while True:
         print("等待拉取消息...", flush=True)
-        batch_start = time.monotonic()
         raw_messages = poll_batch(consumer, args.batch_size, args.max_wait_sec)
         print(f"拉取完成，原始消息数={len(raw_messages)}", flush=True)
         if not raw_messages:
@@ -212,7 +235,9 @@ def main() -> None:
         print(f"有效图片数量: {len(images)}", flush=True)
 
         # 使用列表一次性推理，实现批量合并计算
+        inference_start = time.monotonic()
         results = model(images, conf=args.conf, verbose=False)
+        inference_elapsed = time.monotonic() - inference_start
         for entry, result in zip(valid_entries, results):
             has_fire = False
             for box in result.boxes:
@@ -244,10 +269,9 @@ def main() -> None:
                 )
 
         batch_count += 1
-        elapsed_sec = time.monotonic() - batch_start
         print(
             f"处理批次: {batch_count}, 消息数: {len(raw_messages)}, 有效图片: {len(images)}, "
-            f"耗时: {elapsed_sec:.2f}s",
+            f"推理耗时: {inference_elapsed:.2f}s",
             flush=True,
         )
         producer.flush()

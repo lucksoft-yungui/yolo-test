@@ -20,7 +20,7 @@ docker build -t fire-alarm-consumer:cuda -f docker/fire-alarm/Dockerfile.cuda .
 
 ```bash
 docker/fire-alarm/build.sh -f docker/fire-alarm/Dockerfile -t fire-alarm-consumer -p linux/amd64
-docker/fire-alarm/build.sh -f docker/fire-alarm/Dockerfile.cuda -t fire-alarm-consumer:cuda -p linux/arm64
+docker/fire-alarm/build.sh -f docker/fire-alarm/Dockerfile.cuda -t fire-alarm-consumer:cuda -p linux/amd64
 ```
 
 ## 运行示例
@@ -42,7 +42,7 @@ CUDA 运行示例：
 
 ```bash
 docker run --rm --gpus all \
-  -e KAFKA_BOOTSTRAP_SERVERS=host.docker.internal:9092 \
+  -e KAFKA_BOOTSTRAP_SERVERS=10.10.6.13:9092 \
   -e MODEL_DEVICE=cuda \
   -e MODEL_GPU=0 \
   fire-alarm-consumer:cuda

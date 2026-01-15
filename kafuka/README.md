@@ -42,12 +42,13 @@ uv run python kafuka/fire_alarm_consumer.py \
   --batch-size 10 \
   --model model/fire-kaggle/weights/best.pt
 
- uv run python kafuka/fire_alarm_consumer.py \
+uv run python kafuka/fire_alarm_consumer.py \
   --bootstrap-servers 10.10.6.13:9092 \
   --topic fire-alarm \
   --alarm-topic alarm-queue \
   --batch-size 10 \
-  --model model/fire-kaggle/weights/best.pt 
+  --model model/fire-kaggle/weights/best.pt \
+  --device mps
 ```
 
 ## 手动推送消息
@@ -66,6 +67,17 @@ uv run python kafuka/fire_alarm_producer.py \
   --topic fire-alarm \
   --image-dir datasets/fire/images \
   --limit 23
+```
+
+## 线上发送测试
+
+固定发送线上目录 `/mnt/nfs/datasets` 下的 `fntr_img_1000.jpg` ~ `fntr_img_1009.jpg`。
+
+```bash
+uv run python kafuka/fire_alarm_producer_online.py \
+  --bootstrap-servers 10.10.6.13:9092 \
+  --topic fire-alarm \
+  --limit 10
 ```
 
 参数说明：
