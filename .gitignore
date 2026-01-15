@@ -140,3 +140,7 @@ videos/
 fire-store/
 
 .config/
+
+.docker-cache/
+
+*.tar

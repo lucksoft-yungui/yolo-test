@@ -34,8 +34,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--alarm-topic",
         type=str,
-        default="alarm-queue",
-        help="报警消息推送主题，默认 alarm-queue",
+        default="fire-alarm-result",
+        help="报警消息推送主题，默认 fire-alarm-result",
     )
     parser.add_argument(
         "--group-id",
@@ -239,19 +239,21 @@ def main() -> None:
         results = model(images, conf=args.conf, verbose=False)
         inference_elapsed = time.monotonic() - inference_start
         for entry, result in zip(valid_entries, results):
-            has_fire = False
+            fire_boxes: list[dict[str, object]] = []
             for box in result.boxes:
                 cls_id = int(box.cls[0])
                 if cls_id == fire_index:
-                    has_fire = True
-                    break
-            if has_fire:
+                    conf = float(box.conf[0]) if hasattr(box, "conf") else None
+                    coords = [float(v) for v in box.xyxy[0]]
+                    fire_boxes.append({"conf": conf, "xyxy": coords})
+            if fire_boxes:
                 alarm_payload = [
                     {
                         "topic": args.topic,
                         "deviceId": entry.device_id,
                         "areaId": entry.area_id,
                         "photoPath": entry.photo_path,
+                        "boxes": fire_boxes,
                     }
                 ]
                 producer.send(
@@ -259,7 +261,8 @@ def main() -> None:
                     json.dumps(alarm_payload).encode("utf-8"),
                 )
                 print(
-                    f"检测到烟火: deviceId={entry.device_id}, photoPath={entry.photo_path}",
+                    f"检测到烟火: deviceId={entry.device_id}, photoPath={entry.photo_path}, "
+                    f"boxes={len(fire_boxes)}",
                     flush=True,
                 )
             else:

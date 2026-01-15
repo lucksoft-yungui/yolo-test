@@ -9,6 +9,7 @@ show_help() {
   -f, --file DOCKERFILE   指定 Dockerfile（默认 docker/fire-alarm/Dockerfile）
   -t, --tag TAG           镜像名（默认 fire-alarm-consumer）
   -p, --platform PLAT     目标架构（默认 linux/amd64）
+  -c, --cache-dir DIR     Buildx 本地缓存目录（默认 .docker-cache/fire-alarm）
   -h, --help              显示帮助
 
 示例:
@@ -20,6 +21,7 @@ USAGE
 DOCKERFILE="docker/fire-alarm/Dockerfile"
 TAG="fire-alarm-consumer"
 PLATFORM="linux/amd64"
+CACHE_DIR=".docker-cache/fire-alarm"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -33,6 +35,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -p|--platform)
       PLATFORM="$2"
+      shift 2
+      ;;
+    -c|--cache-dir)
+      CACHE_DIR="$2"
       shift 2
       ;;
     -h|--help)
@@ -66,5 +72,7 @@ DOCKER_BUILDKIT=1 docker buildx build \
   -f "$DOCKERFILE" \
   -t "$TAG" \
   --platform "$PLATFORM" \
+  --cache-from "type=local,src=$CACHE_DIR" \
+  --cache-to "type=local,dest=$CACHE_DIR,mode=max" \
   --load \
   .

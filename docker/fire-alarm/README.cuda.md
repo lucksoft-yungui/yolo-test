@@ -16,7 +16,7 @@ docker build -t fire-alarm-consumer:cuda -f docker/fire-alarm/Dockerfile.cuda .
 ## 运行示例
 
 ```bash
-docker run --rm --gpus all \
+docker run --restart=always --gpus all \
   --name firec \
   --network host \
   -e KAFKA_BOOTSTRAP_SERVERS=10.10.6.13:9092 \
@@ -28,6 +28,23 @@ docker run --rm --gpus all \
   -e KAFKA_AUTO_OFFSET_RESET=latest \
   -e MODEL_DEVICE=cuda \
   -e MODEL_GPU=0 \
+  -e MODEL_CONF=0.6 \
+  -v /mnt/nfs/datasets:/mnt/nfs/datasets:ro \
+  fire-alarm-consumer:cuda
+
+docker run --restart=always --gpus all \
+  --name luckyun-fire-c \
+  --network host \
+  -e KAFKA_BOOTSTRAP_SERVERS=10.10.6.13:9092 \
+  -e KAFKA_TOPIC=fire-alarm \
+  -e KAFKA_ALARM_TOPIC=alarm-queue \
+  -e KAFKA_GROUP_ID=fire-alarm-consumer \
+  -e KAFKA_BATCH_SIZE=10 \
+  -e KAFKA_MAX_WAIT_SEC=2 \
+  -e KAFKA_AUTO_OFFSET_RESET=latest \
+  -e MODEL_DEVICE=cuda \
+  -e MODEL_GPU=0 \
+  -e MODEL_CONF=0.6 \
   -v /mnt/nfs/datasets:/mnt/nfs/datasets:ro \
   fire-alarm-consumer:cuda
 ```
@@ -38,6 +55,7 @@ docker run --rm --gpus all \
 默认值：
 - `MODEL_DEVICE=cuda`
 - `MODEL_GPU=0`
+- `MODEL_CONF=0.6`
 
 ## 说明
 
