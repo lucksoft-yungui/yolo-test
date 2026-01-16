@@ -18,7 +18,7 @@ class AlarmMessage:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="订阅 Kafka fire-alarm 主题并批量检测烟火")
+    parser = argparse.ArgumentParser(description="订阅 Kafka 主题并批量执行目标检测")
     parser.add_argument(
         "--bootstrap-servers",
         type=str,
@@ -93,20 +93,27 @@ def parse_args() -> argparse.Namespace:
         help="指定 GPU 序号（如 0），仅在未指定 --device 时生效",
     )
     parser.add_argument(
-        "--fire-class",
+        "--target-class-name",
         type=str,
         default="fire",
-        help="烟火类别名称，默认 fire",
+        help="目标类别名称，仅用于日志展示，默认 fire",
+    )
+    parser.add_argument(
+        "--target-class-index",
+        type=int,
+        default=0,
+        help="报警触发的类别索引，默认 0",
     )
     return parser.parse_args()
 
 
-def load_model(weight_path: Path, device: str | None, class_names: list[str]) -> YOLO:
+def load_model(weight_path: Path, device: str | None, class_names: list[str] | None) -> YOLO:
     if not weight_path.exists():
         raise FileNotFoundError(f"未找到模型文件: {weight_path}")
     model = YOLO(str(weight_path))
-    if class_names:
-        model.model.names = {i: name for i, name in enumerate(class_names)}
+    if class_names and hasattr(model, "model") and hasattr(model.model, "names"):
+        if len(class_names) == len(model.model.names):
+            model.model.names = {i: name for i, name in enumerate(class_names)}
     if device:
         model.to(device)
     return model
@@ -189,10 +196,10 @@ def main() -> None:
     device = args.device
     if device is None and args.gpu >= 0:
         device = f"cuda:{args.gpu}"
-    model = load_model(args.model, device, [args.fire_class])
+    model = load_model(args.model, device, [args.target_class_name])
     device_label = resolve_model_device(model, device)
     print(f"当前使用算力: {device_label}", flush=True)
-    fire_index = 0
+    fire_index = args.target_class_index
 
     consumer = KafkaConsumer(
         args.topic,
@@ -261,13 +268,13 @@ def main() -> None:
                     json.dumps(alarm_payload).encode("utf-8"),
                 )
                 print(
-                    f"检测到烟火: deviceId={entry.device_id}, photoPath={entry.photo_path}, "
+                    f"检测到目标: deviceId={entry.device_id}, photoPath={entry.photo_path}, "
                     f"boxes={len(fire_boxes)}",
                     flush=True,
                 )
             else:
                 print(
-                    f"未检测到烟火: deviceId={entry.device_id}, photoPath={entry.photo_path}",
+                    f"未检测到目标: deviceId={entry.device_id}, photoPath={entry.photo_path}",
                     flush=True,
                 )
 

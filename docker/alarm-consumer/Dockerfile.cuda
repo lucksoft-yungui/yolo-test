@@ -24,13 +24,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=cache,target=/root/.cache/pip \
     uv sync --frozen
 
-COPY kafuka /app/kafuka
-COPY model/fire-kaggle/weights/best.pt /app/model/fire-kaggle/weights/best.pt
 
 ENV KAFKA_BOOTSTRAP_SERVERS=localhost:9092 \
     KAFKA_TOPIC=fire-alarm \
     KAFKA_GROUP_ID=fire-alarm-consumer \
-    KAFKA_ALARM_TOPIC=alarm-queue \
+    KAFKA_ALARM_TOPIC=fire-alarm-result \
     KAFKA_BATCH_SIZE=10 \
     KAFKA_MAX_WAIT_SEC=2 \
     KAFKA_MAX_BATCHES=0 \
@@ -39,9 +37,10 @@ ENV KAFKA_BOOTSTRAP_SERVERS=localhost:9092 \
     MODEL_CONF=0.6 \
     MODEL_DEVICE=cuda \
     MODEL_GPU=0 \
-    FIRE_CLASS=fire
+    TARGET_CLASS_NAME=fire \
+    TARGET_CLASS_INDEX=0
 
-CMD ["/bin/sh", "-c", "uv run python /app/kafuka/fire_alarm_consumer.py \
+CMD ["/bin/sh", "-c", "uv run python /app/kafuka/alarm_consumer.py \
   --bootstrap-servers ${KAFKA_BOOTSTRAP_SERVERS} \
   --topic ${KAFKA_TOPIC} \
   --group-id ${KAFKA_GROUP_ID} \
@@ -54,4 +53,5 @@ CMD ["/bin/sh", "-c", "uv run python /app/kafuka/fire_alarm_consumer.py \
   --conf ${MODEL_CONF} \
   ${MODEL_DEVICE:+--device ${MODEL_DEVICE}} \
   --gpu ${MODEL_GPU} \
-  --fire-class ${FIRE_CLASS}"]
+  --target-class-name ${TARGET_CLASS_NAME} \
+  --target-class-index ${TARGET_CLASS_INDEX}"]

@@ -139,4 +139,6 @@ uv run python http_record.py \
 
 ```
 uv run python train.py --file fire-store.yaml --epochs 50 --imgsz 640 --patience 10
+
+uv run python train.py --file lab.yaml --epochs 50 --imgsz 640 --patience 10
 ```

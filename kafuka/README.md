@@ -3,7 +3,7 @@
 ## 功能简介
 - 订阅 `fire-alarm` 主题，按批次拉取消息并批量推理。
 - 将消息中的图片合并推理，命中烟火类别则打印。
-- 命中烟火后推送报警消息到 `alarm-queue` 主题（可配置）。
+- 命中烟火后推送报警消息到 `fire-alarm-result` 主题（可配置）。
 
 ## 消息格式
 ```json
@@ -23,7 +23,13 @@
     "topic": "fire-alarm",
     "deviceId": "uuid",
     "areaId": "uuid",
-    "photoPath": "/abs/path/to/image.jpg"
+    "photoPath": "/abs/path/to/image.jpg",
+    "boxes": [
+      {
+        "conf": 0.85,
+        "xyxy": [10.0, 20.0, 30.0, 40.0]
+      }
+    ]
   }
 ]
 ```
@@ -35,17 +41,17 @@ uv add kafka-python
 
 ## 运行示例
 ```bash
-uv run python kafuka/fire_alarm_consumer.py \
+uv run python kafuka/alarm_consumer.py \
   --bootstrap-servers localhost:9092 \
   --topic fire-alarm \
-  --alarm-topic alarm-queue \
+  --alarm-topic fire-alarm-result \
   --batch-size 10 \
   --model model/fire-kaggle/weights/best.pt
 
-uv run python kafuka/fire_alarm_consumer.py \
+uv run python kafuka/alarm_consumer.py \
   --bootstrap-servers 10.10.6.13:9092 \
   --topic fire-alarm \
-  --alarm-topic alarm-queue \
+  --alarm-topic fire-alarm-result \
   --batch-size 10 \
   --model model/fire-kaggle/weights/best.pt \
   --device mps
@@ -90,12 +96,13 @@ uv run python kafuka/fire_alarm_producer_online.py \
 ## 参数说明
 - `--bootstrap-servers` Kafka 地址，默认 `localhost:9092`
 - `--topic` 主题名，默认 `fire-alarm`
-- `--alarm-topic` 报警消息推送主题，默认 `alarm-queue`
+- `--alarm-topic` 报警消息推送主题，默认 `fire-alarm-result`
 - `--group-id` 消费者组 ID
 - `--batch-size` 单次拉取数量
 - `--max-wait-sec` 等待凑满批次的最长时间
 - `--model` 模型权重路径
 - `--conf` 置信度阈值
 - `--device` 推理设备（cpu / cuda / mps）
-- `--fire-class` 烟火类别名称（默认 `fire`）
+- `--target-class-name` 目标类别名称（默认 `fire`）
+- `--target-class-index` 报警触发的类别索引（默认 `0`）
 - `--auto-offset-reset` 起始偏移策略（latest / earliest / none）

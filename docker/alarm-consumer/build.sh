@@ -3,23 +3,23 @@ set -euo pipefail
 
 show_help() {
   cat <<'USAGE'
-用法: docker/fire-alarm/build.sh [选项]
+用法: docker/alarm-consumer/build.sh [选项]
 
 选项:
-  -f, --file DOCKERFILE   指定 Dockerfile（默认 docker/fire-alarm/Dockerfile）
-  -t, --tag TAG           镜像名（默认 fire-alarm-consumer）
+  -f, --file DOCKERFILE   指定 Dockerfile（默认 docker/alarm-consumer/Dockerfile）
+  -t, --tag TAG           镜像名（默认 alarm-consumer）
   -p, --platform PLAT     目标架构（默认 linux/amd64）
   -c, --cache-dir DIR     Buildx 本地缓存目录（默认 .docker-cache/fire-alarm）
   -h, --help              显示帮助
 
 示例:
-  docker/fire-alarm/build.sh -f docker/fire-alarm/Dockerfile.cuda -t fire-alarm-consumer:cuda -p linux/amd64
-  docker/fire-alarm/build.sh -f docker/fire-alarm/Dockerfile -t fire-alarm-consumer -p linux/arm64
+  docker/alarm-consumer/build.sh -f docker/alarm-consumer/Dockerfile.cuda -t alarm-consumer:cuda -p linux/amd64
+  docker/alarm-consumer/build.sh -f docker/alarm-consumer/Dockerfile -t alarm-consumer -p linux/arm64
 USAGE
 }
 
-DOCKERFILE="docker/fire-alarm/Dockerfile"
-TAG="fire-alarm-consumer"
+DOCKERFILE="docker/alarm-consumer/Dockerfile"
+TAG="alarm-consumer"
 PLATFORM="linux/amd64"
 CACHE_DIR=".docker-cache/fire-alarm"
 

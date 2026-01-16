@@ -14,7 +14,7 @@ from kafka.errors import TopicAlreadyExistsError
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-CONSUMER_SCRIPT = PROJECT_ROOT / "kafuka" / "fire_alarm_consumer.py"
+CONSUMER_SCRIPT = PROJECT_ROOT / "kafuka" / "alarm_consumer.py"
 MODEL_PATH = PROJECT_ROOT / "model" / "fire-kaggle" / "weights" / "best.pt"
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "fire-alarm")
