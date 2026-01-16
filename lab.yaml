@@ -3,5 +3,7 @@ train: images/train
 val: images/val
 
 names:
-  0: no_lab_coat
-  1: ok
+  0: with labcoat
+  1: with glove
+  2: no labcoat
+  3: no glove
