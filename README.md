@@ -44,9 +44,20 @@ python main.py
 - 也可直接指定配置文件：`train.py --file play-phone-kaggle.yaml`，优先于 `--data`。
 - 模型输出：默认写入 `model/<数据集名>/`，可用 `--project` 自定义根目录、`--name` 自定义 run 名。
 - 基本示例：`uv run python train.py --data labcoat --epochs 5 --imgsz 640`
+- 模型规模：`--model-size yolo11n|yolo11s|yolo11m|yolo11l|yolo11x`（不填默认 yolo11n）
 - 断点恢复：`--resume` 自动寻找最近的 `last.pt`，或用 `--checkpoint path/to/last.pt` 指定。
 - Early stopping：`--patience 10`（验证集指标 10 个 epoch 无提升则提前停止）。
 - 硬件检测：自动检测 MPS/CUDA/CPU 并提示当前训练设备。
+
+YOLO11 模型规格参考（官方基准，imgsz=640）：
+
+| 模型 | imgsz | mAP50-95 | CPU(ms) | T4(ms) | 参数量(M) | FLOPs(B) |
+| --- | --- | --- | --- | --- | --- | --- |
+| YOLO11n | 640 | 39.5 | 56.1 ± 0.8 | 1.5 ± 0.0 | 2.6 | 6.5 |
+| YOLO11s | 640 | 47.0 | 90.0 ± 1.2 | 2.5 ± 0.0 | 9.4 | 21.5 |
+| YOLO11m | 640 | 51.5 | 183.2 ± 2.0 | 4.7 ± 0.1 | 20.1 | 68.0 |
+| YOLO11l | 640 | 53.4 | 238.6 ± 1.4 | 6.2 ± 0.1 | 25.3 | 86.9 |
+| YOLO11x | 640 | 54.7 | 462.8 ± 6.7 | 11.3 ± 0.2 | 56.9 | 194.9 |
 
 ## 微调
 ```
@@ -141,4 +152,12 @@ uv run python http_record.py \
 uv run python train.py --file fire-store.yaml --epochs 50 --imgsz 640 --patience 10
 
 uv run python train.py --file lab.yaml --epochs 50 --imgsz 640 --patience 10
+```
+
+可指定基础模型规模，例如：
+
+```
+uv run python train.py --file fire-store.yaml --model-size yolo11x --epochs 50 --imgsz 640 --patience 10
+
+uv run python train.py --file lab.yaml --model-size yolo11x --epochs 50 --imgsz 640 --patience 10
 ```

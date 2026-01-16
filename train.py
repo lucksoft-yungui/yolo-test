@@ -33,6 +33,15 @@ def check_mps_support():
     print("=" * 60)
     return device
 
+MODEL_CONFIGS = {
+    "yolo11n": {"yaml": "yolo11n.yaml", "weights": "yolo11n.pt", "imgsz": 640},
+    "yolo11s": {"yaml": "yolo11s.yaml", "weights": "yolo11s.pt", "imgsz": 640},
+    "yolo11m": {"yaml": "yolo11m.yaml", "weights": "yolo11m.pt", "imgsz": 640},
+    "yolo11l": {"yaml": "yolo11l.yaml", "weights": "yolo11l.pt", "imgsz": 640},
+    "yolo11x": {"yaml": "yolo11x.yaml", "weights": "yolo11x.pt", "imgsz": 640},
+}
+
+
 def parse_args():
     """解析命令行参数"""
     parser = argparse.ArgumentParser(description="YOLO 模型训练脚本，支持断点恢复")
@@ -45,8 +54,15 @@ def parse_args():
         "--file",
         help="数据集配置文件路径，可替代 --data 直接传入 yaml",
     )
+    parser.add_argument(
+        "--model-size",
+        type=str,
+        default="yolo11n",
+        choices=sorted(MODEL_CONFIGS.keys()),
+        help="选择基础模型规模，默认 yolo11n",
+    )
     parser.add_argument("--epochs", type=int, default=100, help="训练轮次")
-    parser.add_argument("--imgsz", type=int, default=640, help="输入图片尺寸")
+    parser.add_argument("--imgsz", type=int, default=None, help="输入图片尺寸（不填则使用模型默认）")
     parser.add_argument("--patience", type=int, default=50, help="Early stopping patience (epoch 数)")
     parser.add_argument("--resume", action="store_true", help="从最近一次训练断点恢复")
     parser.add_argument("--checkpoint", type=str, help="指定断点权重文件 (last.pt) 路径")
@@ -87,8 +103,9 @@ def load_model(args) -> Tuple[YOLO, bool]:
             return YOLO(str(checkpoint_path)), True
         print("⚠️ 未在 runs 目录中找到可用的断点，改为重新训练")
 
-    print("🆕 未指定断点，将从预训练权重开始训练")
-    return YOLO("yolo11n.yaml").load("yolo11n.pt"), False
+    model_cfg = MODEL_CONFIGS[args.model_size]
+    print(f"🆕 未指定断点，将从预训练权重开始训练: {args.model_size}")
+    return YOLO(model_cfg["yaml"]).load(model_cfg["weights"]), False
 
 def main():
     args = parse_args()
@@ -111,6 +128,8 @@ def main():
     model, resume_mode = load_model(argparse.Namespace(**{**vars(args), "runs_dir": runs_dir}))
 
     # 组装训练参数
+    model_cfg = MODEL_CONFIGS[args.model_size]
+    imgsz = args.imgsz if args.imgsz is not None else model_cfg["imgsz"]
     train_kwargs = {"device": device}
     if resume_mode:
         train_kwargs["resume"] = True
@@ -118,7 +137,7 @@ def main():
         train_kwargs.update(
             data=str(data_path),
             epochs=args.epochs,
-            imgsz=args.imgsz,
+            imgsz=imgsz,
             patience=args.patience,
         )
 
@@ -132,7 +151,8 @@ def main():
     else:
         print(f"数据集: {data_path}")
         print(f"轮次: {args.epochs}")
-        print(f"图像尺寸: {args.imgsz}\n")
+        print(f"模型规模: {args.model_size}")
+        print(f"图像尺寸: {imgsz}\n")
 
     model.train(**train_kwargs)
 

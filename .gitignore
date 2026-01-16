@@ -144,3 +144,5 @@ fire-store/
 .docker-cache/
 
 *.tar
+
+val/lab/image-val/
