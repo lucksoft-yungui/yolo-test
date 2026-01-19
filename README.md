@@ -47,6 +47,7 @@ python main.py
 - 模型规模：`--model-size yolo11n|yolo11s|yolo11m|yolo11l|yolo11x`（不填默认 yolo11n）
 - 断点恢复：`--resume` 自动寻找最近的 `last.pt`，或用 `--checkpoint path/to/last.pt` 指定。
 - Early stopping：`--patience 10`（验证集指标 10 个 epoch 无提升则提前停止）。
+- 设备选择：`--device cuda:0` / `--device 0` / `--device cpu` / `--device mps`（不填则自动检测）。
 - 硬件检测：自动检测 MPS/CUDA/CPU 并提示当前训练设备。
 
 YOLO11 模型规格参考（官方基准，imgsz=640）：
@@ -159,5 +160,5 @@ uv run python train.py --file lab.yaml --epochs 50 --imgsz 640 --patience 10
 ```
 uv run python train.py --file fire-store.yaml --model-size yolo11x --epochs 50 --imgsz 640 --patience 10
 
-uv run python train.py --file lab.yaml --model-size yolo11n --epochs 50 --imgsz 640 --patience 10
+uv run python train.py --file labcoat.yaml --model-size yolo11n --epochs 50 --imgsz 640 --patience 10 --device 0
 ```

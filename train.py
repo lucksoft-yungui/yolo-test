@@ -66,6 +66,12 @@ def parse_args():
     parser.add_argument("--patience", type=int, default=50, help="Early stopping patience (epoch 数)")
     parser.add_argument("--resume", action="store_true", help="从最近一次训练断点恢复")
     parser.add_argument("--checkpoint", type=str, help="指定断点权重文件 (last.pt) 路径")
+    parser.add_argument(
+        "--device",
+        type=str,
+        default=None,
+        help="指定训练设备，如 cpu/mps/cuda/cuda:0/0（不填则自动检测）",
+    )
     parser.add_argument("--runs-dir", type=str, help="训练输出目录（默认为 project 设置）")
     parser.add_argument("--project", type=str, help="自定义 Ultralytics 项目目录（默认 model）")
     parser.add_argument("--name", type=str, help="自定义本次训练 run 名称（默认数据集名）")
@@ -107,6 +113,48 @@ def load_model(args) -> Tuple[YOLO, bool]:
     print(f"🆕 未指定断点，将从预训练权重开始训练: {args.model_size}")
     return YOLO(model_cfg["yaml"]).load(model_cfg["weights"]), False
 
+def resolve_device(device_arg: Optional[str]) -> str:
+    """根据参数或自动检测选择训练设备"""
+    if not device_arg:
+        return check_mps_support()
+
+    device = device_arg.strip()
+    if device.isdigit():
+        device = f"cuda:{device}"
+    device_lower = device.lower()
+
+    if device_lower == "cpu":
+        print("✅ 指定使用 CPU 训练")
+        return "cpu"
+
+    if device_lower == "mps":
+        if torch.backends.mps.is_available():
+            print("✅ 指定使用 MPS 训练")
+            return "mps"
+        print("❌ 指定 MPS 但当前环境不支持")
+        sys.exit(1)
+
+    if device_lower == "cuda" or device_lower.startswith("cuda:"):
+        if not torch.cuda.is_available():
+            print("❌ 指定 CUDA 但当前环境未检测到可用 GPU")
+            sys.exit(1)
+        if device_lower.startswith("cuda:"):
+            idx_str = device_lower.split("cuda:", 1)[1]
+            if idx_str.isdigit():
+                idx = int(idx_str)
+                if idx >= torch.cuda.device_count():
+                    print(f"❌ 指定 GPU 索引超出范围: {idx}，可用数量: {torch.cuda.device_count()}")
+                    sys.exit(1)
+                print(f"✅ 指定使用 CUDA 设备: {torch.cuda.get_device_name(idx)} (cuda:{idx})")
+            else:
+                print(f"✅ 指定使用 CUDA 设备: {device}")
+        else:
+            print(f"✅ 指定使用 CUDA 设备: {torch.cuda.get_device_name(0)} (cuda)")
+        return device
+
+    print(f"❌ 不支持的 device 参数: {device_arg}，可选 cpu/mps/cuda/cuda:<index>/<index>")
+    sys.exit(1)
+
 def main():
     args = parse_args()
 
@@ -121,8 +169,8 @@ def main():
     run_name = args.name if args.name else dataset_name
     runs_dir = Path(args.runs_dir) if args.runs_dir else project
 
-    # 检测设备支持
-    device = check_mps_support()
+    # 选择训练设备
+    device = resolve_device(args.device)
 
     # 加载模型/断点
     model, resume_mode = load_model(argparse.Namespace(**{**vars(args), "runs_dir": runs_dir}))
