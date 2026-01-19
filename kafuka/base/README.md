@@ -41,14 +41,14 @@ uv add kafka-python
 
 ## 运行示例
 ```bash
-uv run python kafuka/alarm_consumer.py \
+uv run python kafuka/base/alarm_consumer.py \
   --bootstrap-servers localhost:9092 \
   --topic fire-alarm \
   --alarm-topic fire-alarm-result \
   --batch-size 10 \
   --model model/fire-kaggle/weights/best.pt
 
-uv run python kafuka/alarm_consumer.py \
+uv run python kafuka/base/alarm_consumer.py \
   --bootstrap-servers 10.10.6.13:9092 \
   --topic fire-alarm \
   --alarm-topic fire-alarm-result \
@@ -62,13 +62,13 @@ uv run python kafuka/alarm_consumer.py \
 用于向 Kafka 主题手动推送图片消息（只推送，不消费）。
 
 ```bash
-uv run python kafuka/fire_alarm_producer.py \
+uv run python kafuka/base/fire_alarm_producer.py \
   --bootstrap-servers localhost:9092 \
   --topic fire-alarm \
   --image-dir datasets/fire/images \
   --limit 23
 
-uv run python kafuka/fire_alarm_producer.py \
+uv run python kafuka/base/fire_alarm_producer.py \
   --bootstrap-servers 10.10.6.13:9092 \
   --topic fire-alarm \
   --image-dir datasets/fire/images \
@@ -80,7 +80,7 @@ uv run python kafuka/fire_alarm_producer.py \
 固定发送线上目录 `/mnt/nfs/datasets` 下的 `fntr_img_1000.jpg` ~ `fntr_img_1009.jpg`。
 
 ```bash
-uv run python kafuka/fire_alarm_producer_online.py \
+uv run python kafuka/base/fire_alarm_producer_online.py \
   --bootstrap-servers 10.10.6.13:9092 \
   --topic fire-alarm \
   --limit 10

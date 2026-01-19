@@ -1,6 +1,6 @@
 # Fire Alarm Consumer Docker (CUDA)
 
-该镜像用于在 NVIDIA GPU 环境中运行 `kafuka/alarm_consumer.py`。适用于需要 CUDA 推理的服务器。
+该镜像用于在 NVIDIA GPU 环境中运行 `kafuka/base/alarm_consumer.py`。适用于需要 CUDA 推理的服务器。
 
 ## 前置条件
 
@@ -10,7 +10,7 @@
 ## 构建镜像
 
 ```bash
-docker build -t alarm-consumer:cuda -f docker/alarm-consumer/Dockerfile.cuda .
+docker build -t alarm-consumer:cuda -f kafuka/base/docker/alarm-consumer/Dockerfile.cuda .
 ```
 
 ## 运行示例
@@ -59,7 +59,7 @@ docker run --restart=always --gpus all \
 
 ## 环境变量
 
-参数与 CPU 版本一致，见 `docker/alarm-consumer/README.md`。
+参数与 CPU 版本一致，见 `kafuka/base/docker/alarm-consumer/README.md`。
 默认值：
 - `KAFKA_TOPIC=fire-alarm`
 - `MODEL_DEVICE=cuda`

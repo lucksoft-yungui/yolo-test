@@ -1,6 +1,6 @@
 # test_kafuka_integration.py 说明
 
-这个测试是 Kafka + 模型推理的端到端集成测试，验证 `kafuka/alarm_consumer.py` 在消费 `fire-alarm` 主题消息时，能按批次正常处理并退出。
+这个测试是 Kafka + 模型推理的端到端集成测试，验证 `kafuka/base/alarm_consumer.py` 在消费 `fire-alarm` 主题消息时，能按批次正常处理并退出。
 
 ## 测试做了什么
 
@@ -8,7 +8,7 @@
 - 连接本地 Kafka：`localhost:9092`。
 - 创建主题 `fire-alarm`（已存在则跳过）。
 - 选择固定图片 + `datasets/fire/images` 下的其余图片，总计 23 张。
-- 启动 `kafuka/alarm_consumer.py`，设置：
+- 启动 `kafuka/base/alarm_consumer.py`，设置：
   - `--batch-size 10`
   - `--max-wait-sec 1`
   - `--max-batches 3`

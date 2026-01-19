@@ -35,7 +35,7 @@ ENV KAFKA_BOOTSTRAP_SERVERS=localhost:9092 \
     TARGET_CLASS_NAME=fire \
     TARGET_CLASS_INDEX=0
 
-CMD ["/bin/sh", "-c", "uv run python /app/kafuka/alarm_consumer.py \
+CMD ["/bin/sh", "-c", "uv run python /app/kafuka/base/alarm_consumer.py \
   --bootstrap-servers ${KAFKA_BOOTSTRAP_SERVERS} \
   --topic ${KAFKA_TOPIC} \
   --group-id ${KAFKA_GROUP_ID} \

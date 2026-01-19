@@ -1,26 +1,26 @@
 # Fire Alarm Consumer Docker
 
-该镜像用于运行 `kafuka/alarm_consumer.py`。依赖通过 `uv.lock` 同步，所有运行参数可通过环境变量配置。
+该镜像用于运行 `kafuka/base/alarm_consumer.py`。依赖通过 `uv.lock` 同步，所有运行参数可通过环境变量配置。
 
 ## 构建镜像
 
 在项目根目录执行：
 
 ```bash
-docker build -t alarm-consumer -f docker/alarm-consumer/Dockerfile .
+docker build -t alarm-consumer -f kafuka/base/docker/alarm-consumer/Dockerfile .
 ```
 
 CUDA 版本：
 
 ```bash
-docker build -t alarm-consumer:cuda -f docker/alarm-consumer/Dockerfile.cuda .
+docker build -t alarm-consumer:cuda -f kafuka/base/docker/alarm-consumer/Dockerfile.cuda .
 ```
 
 也可以用脚本指定架构和 Dockerfile（构建后直接加载到本地）：
 
 ```bash
-docker/alarm-consumer/build.sh -f docker/alarm-consumer/Dockerfile -t alarm-consumer -p linux/amd64
-docker/alarm-consumer/build.sh -f docker/alarm-consumer/Dockerfile.cuda -t alarm-consumer:cuda -p linux/amd64
+kafuka/base/docker/alarm-consumer/build.sh -f kafuka/base/docker/alarm-consumer/Dockerfile -t alarm-consumer -p linux/amd64
+kafuka/base/docker/alarm-consumer/build.sh -f kafuka/base/docker/alarm-consumer/Dockerfile.cuda -t alarm-consumer:cuda -p linux/amd64
 ```
 
 ## 运行示例
