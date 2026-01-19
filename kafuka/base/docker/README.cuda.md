@@ -10,7 +10,7 @@
 ## 构建镜像
 
 ```bash
-docker build -t alarm-consumer:cuda -f kafuka/base/docker/alarm-consumer/Dockerfile.cuda .
+docker build -t alarm-consumer:cuda -f kafuka/base/docker/Dockerfile.cuda .
 ```
 
 ## 运行示例
@@ -59,7 +59,7 @@ docker run --restart=always --gpus all \
 
 ## 环境变量
 
-参数与 CPU 版本一致，见 `kafuka/base/docker/alarm-consumer/README.md`。
+参数与 CPU 版本一致，见 `kafuka/base/docker/README.md`。
 默认值：
 - `KAFKA_TOPIC=fire-alarm`
 - `MODEL_DEVICE=cuda`

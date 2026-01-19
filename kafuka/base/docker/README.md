@@ -7,20 +7,20 @@
 在项目根目录执行：
 
 ```bash
-docker build -t alarm-consumer -f kafuka/base/docker/alarm-consumer/Dockerfile .
+docker build -t alarm-consumer -f kafuka/base/docker/Dockerfile .
 ```
 
 CUDA 版本：
 
 ```bash
-docker build -t alarm-consumer:cuda -f kafuka/base/docker/alarm-consumer/Dockerfile.cuda .
+docker build -t alarm-consumer:cuda -f kafuka/base/docker/Dockerfile.cuda .
 ```
 
 也可以用脚本指定架构和 Dockerfile（构建后直接加载到本地）：
 
 ```bash
-kafuka/base/docker/alarm-consumer/build.sh -f kafuka/base/docker/alarm-consumer/Dockerfile -t alarm-consumer -p linux/amd64
-kafuka/base/docker/alarm-consumer/build.sh -f kafuka/base/docker/alarm-consumer/Dockerfile.cuda -t alarm-consumer:cuda -p linux/amd64
+kafuka/base/docker/build.sh -f kafuka/base/docker/Dockerfile -t alarm-consumer -p linux/amd64
+kafuka/base/docker/build.sh -f kafuka/base/docker/Dockerfile.cuda -t alarm-consumer:cuda -p linux/amd64
 ```
 
 ## 运行示例
