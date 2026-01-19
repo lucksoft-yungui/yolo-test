@@ -1,0 +1,6 @@
+path: datasets/glove
+train: images/train
+val: images/val
+names:
+  0: with glove
+  1: no glove

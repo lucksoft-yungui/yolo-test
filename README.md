@@ -159,5 +159,5 @@ uv run python train.py --file lab.yaml --epochs 50 --imgsz 640 --patience 10
 ```
 uv run python train.py --file fire-store.yaml --model-size yolo11x --epochs 50 --imgsz 640 --patience 10
 
-uv run python train.py --file lab.yaml --model-size yolo11x --epochs 50 --imgsz 640 --patience 10
+uv run python train.py --file lab.yaml --model-size yolo11n --epochs 50 --imgsz 640 --patience 10
 ```
