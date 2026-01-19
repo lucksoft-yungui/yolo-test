@@ -331,6 +331,15 @@ def main() -> None:
     producer = KafkaProducer(bootstrap_servers=args.bootstrap_servers)
 
     if args.debug:
+        if args.debug_dir.exists():
+            for path in args.debug_dir.iterdir():
+                if path.is_dir():
+                    for sub in path.rglob("*"):
+                        if sub.is_file():
+                            sub.unlink()
+                    path.rmdir()
+                else:
+                    path.unlink()
         args.debug_dir.mkdir(parents=True, exist_ok=True)
 
     print(
@@ -370,7 +379,7 @@ def main() -> None:
 
         no_labcoat_boxes_per_entry: list[list[dict[str, object]]] = []
         crop_images: list[object] = []
-        crop_mapping: list[tuple[int, int, int]] = []
+        crop_mapping: list[tuple[int, int, int, int]] = []
 
         for entry_idx, (entry, result, img) in enumerate(
             zip(valid_entries, labcoat_results, images)
@@ -400,18 +409,17 @@ def main() -> None:
                         continue
                     crop = img[y1:y2, x1:x2]
                     crop_images.append(crop)
-                    crop_mapping.append((entry_idx, x1, y1))
+                    crop_mapping.append((entry_idx, len(boxes_for_entry) - 1, x1, y1))
             no_labcoat_boxes_per_entry.append(boxes_for_entry)
 
-        glove_boxes_per_entry: list[list[dict[str, object]]] = [
-            [] for _ in valid_entries
-        ]
+        glove_boxes_per_entry: list[list[dict[str, object]]] = [[] for _ in valid_entries]
+        matched_labcoat_indices: list[set[int]] = [set() for _ in valid_entries]
         if crop_images:
             glove_results = glove_model(
                 crop_images, conf=args.glove_conf, verbose=False
             )
             for mapping, result in zip(crop_mapping, glove_results):
-                entry_idx, x_offset, y_offset = mapping
+                entry_idx, labcoat_box_idx, x_offset, y_offset = mapping
                 if result.boxes is None:
                     continue
                 for box in result.boxes:
@@ -433,12 +441,23 @@ def main() -> None:
                             "xyxy": coords,
                         }
                     )
+                    matched_labcoat_indices[entry_idx].add(labcoat_box_idx)
 
         hit_count = 0
         for entry_idx, entry in enumerate(valid_entries):
             no_labcoat_boxes = no_labcoat_boxes_per_entry[entry_idx]
             glove_boxes = glove_boxes_per_entry[entry_idx]
             if not no_labcoat_boxes or not glove_boxes:
+                continue
+            matched_indices = matched_labcoat_indices[entry_idx]
+            if not matched_indices:
+                continue
+            no_labcoat_boxes = [
+                box
+                for idx, box in enumerate(no_labcoat_boxes)
+                if idx in matched_indices
+            ]
+            if not no_labcoat_boxes:
                 continue
             payload = dict(entry.payload)
             payload.setdefault("topic", args.topic)

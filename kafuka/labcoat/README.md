@@ -8,6 +8,12 @@
 uv run python kafuka/labcoat/labcoat_consumer.py
 ```
 
+生产者（从 `kafuka/labcoat/test/images` 推送）：
+
+```bash
+uv run python kafuka/labcoat/labcoat_alarm_producer.py
+```
+
 ## 完整参数示例
 
 ```bash
@@ -34,6 +40,18 @@ uv run python kafuka/labcoat/labcoat_consumer.py \
   --device mps \
   --debug \
   --debug-dir kafuka/labcoat/debug
+```
+
+生产者完整参数示例：
+
+```bash
+uv run python kafuka/labcoat/labcoat_alarm_producer.py \
+  --bootstrap-servers localhost:9092 \
+  --topic ppe_alarm \
+  --image-dir kafuka/labcoat/test/images \
+  --limit 0 \
+  --device-id "" \
+  --area-id ""
 ```
 
 ## 常用参数
