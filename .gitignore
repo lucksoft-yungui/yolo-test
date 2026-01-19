@@ -146,3 +146,9 @@ fire-store/
 *.tar
 
 val/lab/image-val/
+
+kafuka/labcoat/test/image-with-tag/
+
+kafuka/labcoat/test/images/
+
+kafuka/labcoat/test/debug/
