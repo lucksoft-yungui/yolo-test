@@ -1,0 +1,70 @@
+FROM python:3.11
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+
+RUN sed -i 's|http://deb.debian.org/debian|https://mirrors.tuna.tsinghua.edu.cn/debian|g' /etc/apt/sources.list.d/debian.sources \
+    && sed -i 's|http://security.debian.org/debian-security|https://mirrors.tuna.tsinghua.edu.cn/debian-security|g' /etc/apt/sources.list.d/debian.sources
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 curl python3-dev build-essential gfortran libopenblas-dev pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir uv
+
+COPY pyproject.toml /app/pyproject.toml
+COPY uv.lock /app/uv.lock
+COPY labcoat.yaml /app/labcoat.yaml
+COPY glove.yaml /app/glove.yaml
+RUN uv sync --frozen
+
+
+ENV KAFKA_BOOTSTRAP_SERVERS=localhost:9092 \
+    KAFKA_TOPIC=ppe_alarm \
+    KAFKA_GROUP_ID=ppe-alarm-consumer \
+    KAFKA_ALARM_TOPIC=ppe_alarm_result \
+    KAFKA_BATCH_SIZE=10 \
+    KAFKA_MAX_WAIT_SEC=2 \
+    KAFKA_MAX_BATCHES=0 \
+    KAFKA_AUTO_OFFSET_RESET=latest \
+    LABCOAT_MODEL_PATH=/app/model/labcoat/best.pt \
+    GLOVE_MODEL_PATH=/app/model/glove/best.pt \
+    LABCOAT_YAML=/app/labcoat.yaml \
+    GLOVE_YAML=/app/glove.yaml \
+    LABCOAT_CLASS_NAME="no labcoat" \
+    GLOVE_CLASS_NAME="with glove" \
+    LABCOAT_CLASS_ID= \
+    GLOVE_CLASS_ID= \
+    LABCOAT_CONF=0.7 \
+    GLOVE_CONF=0.7 \
+    MODEL_DEVICE= \
+    MODEL_GPU=0 \
+    DEBUG_MODE= \
+    DEBUG_DIR=/app/kafuka/labcoat/debug
+
+CMD ["/bin/sh", "-c", "uv run python /app/kafuka/labcoat/labcoat_consumer.py \
+  --bootstrap-servers ${KAFKA_BOOTSTRAP_SERVERS} \
+  --topic ${KAFKA_TOPIC} \
+  --group-id ${KAFKA_GROUP_ID} \
+  --alarm-topic ${KAFKA_ALARM_TOPIC} \
+  --batch-size ${KAFKA_BATCH_SIZE} \
+  --max-wait-sec ${KAFKA_MAX_WAIT_SEC} \
+  --max-batches ${KAFKA_MAX_BATCHES} \
+  --auto-offset-reset ${KAFKA_AUTO_OFFSET_RESET} \
+  --labcoat-model ${LABCOAT_MODEL_PATH} \
+  --glove-model ${GLOVE_MODEL_PATH} \
+  --labcoat-yaml ${LABCOAT_YAML} \
+  --glove-yaml ${GLOVE_YAML} \
+  --labcoat-class-name \"${LABCOAT_CLASS_NAME}\" \
+  --glove-class-name \"${GLOVE_CLASS_NAME}\" \
+  ${LABCOAT_CLASS_ID:+--labcoat-class-id ${LABCOAT_CLASS_ID}} \
+  ${GLOVE_CLASS_ID:+--glove-class-id ${GLOVE_CLASS_ID}} \
+  --labcoat-conf ${LABCOAT_CONF} \
+  --glove-conf ${GLOVE_CONF} \
+  ${MODEL_DEVICE:+--device ${MODEL_DEVICE}} \
+  --gpu ${MODEL_GPU} \
+  ${DEBUG_MODE:+--debug} \
+  --debug-dir ${DEBUG_DIR}"]
