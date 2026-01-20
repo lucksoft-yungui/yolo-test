@@ -51,7 +51,8 @@ uv run python kafuka/headcount/headcount_consumer.py \
   --model yolo11n.pt \
   --conf 0.5 \
   --time-start 00:00 \
-  --time-end 08:00
+  --time-end 08:00 \
+  --debug
 
 uv run python kafuka/headcount/headcount_consumer.py \
   --bootstrap-servers localhost:9092 \
