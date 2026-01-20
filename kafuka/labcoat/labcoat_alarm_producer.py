@@ -1,5 +1,6 @@
 import argparse
 import json
+import time
 from pathlib import Path
 from uuid import uuid4
 
@@ -51,6 +52,24 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="固定 areaId，不填则不发送该字段",
     )
+    parser.add_argument(
+        "--area-no",
+        type=str,
+        default="",
+        help="固定 areaNo，不填则不发送该字段",
+    )
+    parser.add_argument(
+        "--zone-no",
+        type=str,
+        default="",
+        help="固定 zoneNo，不填则不发送该字段",
+    )
+    parser.add_argument(
+        "--timestamp",
+        type=int,
+        default=0,
+        help="时间戳（毫秒），默认使用当前时间",
+    )
     return parser.parse_args()
 
 
@@ -95,6 +114,12 @@ def main() -> None:
             item = {"deviceId": device_id, "photoPath": str(path)}
             if args.area_id:
                 item["areaId"] = args.area_id
+            if args.area_no:
+                item["areaNo"] = args.area_no
+            if args.zone_no:
+                item["zoneNo"] = args.zone_no
+            timestamp = args.timestamp or int(time.time() * 1000)
+            item["timestamp"] = timestamp
             payload = [item]
             producer.send(args.topic, json.dumps(payload).encode("utf-8"))
         producer.flush()

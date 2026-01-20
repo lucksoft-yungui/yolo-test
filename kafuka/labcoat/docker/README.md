@@ -21,7 +21,7 @@ docker build -t labcoat-consumer:cuda -f kafuka/labcoat/docker/Dockerfile.cuda .
 ```bash
 kafuka/labcoat/docker/build.sh -f kafuka/labcoat/docker/Dockerfile -t labcoat-consumer -p linux/amd64
 kafuka/labcoat/docker/build.sh -f kafuka/labcoat/docker/Dockerfile.cuda -t labcoat-consumer:cuda -p linux/amd64
-kafuka/labcoat/docker/build.sh -f kafuka/labcoat/docker/Dockerfile -n labcoat-consumer --tag-name v1-amd64 -p linux/amd64
+kafuka/labcoat/docker/build.sh -f kafuka/labcoat/docker/Dockerfile.cuda -n labcoat-consumer --tag-name v1-amd64 -p linux/amd64
 ```
 
 ## 运行示例

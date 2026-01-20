@@ -50,8 +50,11 @@ uv run python kafuka/labcoat/labcoat_alarm_producer.py \
   --topic ppe_alarm \
   --image-dir kafuka/labcoat/test/images \
   --limit 0 \
-  --device-id "" \
-  --area-id ""
+  --device-id "device1" \
+  --area-id "area1" \
+  --area-no "B311" \
+  --zone-no "Z001" \
+  --timestamp 0
 ```
 
 ## 常用参数
