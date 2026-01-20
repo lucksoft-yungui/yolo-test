@@ -154,3 +154,9 @@ kafuka/labcoat/test/images/
 kafuka/labcoat/test/debug/
 
 kafuka/headcount/debug/
+
+# YOLO model weights
+yolo11l.pt
+yolo11m.pt
+yolo11n.pt
+yolo11s.pt
