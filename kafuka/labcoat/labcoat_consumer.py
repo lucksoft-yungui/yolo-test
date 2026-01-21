@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -73,25 +74,25 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--labcoat-model",
         type=Path,
-        default=Path("model/labcoat/best.pt"),
+        default=Path(os.getenv("LABCOAT_MODEL_PATH", "model/labcoat/best.pt")),
         help="实验服模型权重路径",
     )
     parser.add_argument(
         "--glove-model",
         type=Path,
-        default=Path("model/glove/best.pt"),
+        default=Path(os.getenv("GLOVE_MODEL_PATH", "model/glove/best.pt")),
         help="手套模型权重路径",
     )
     parser.add_argument(
         "--labcoat-yaml",
         type=Path,
-        default=Path("labcoat.yaml"),
+        default=Path(os.getenv("LABCOAT_YAML", "labcoat.yaml")),
         help="实验服数据集 yaml",
     )
     parser.add_argument(
         "--glove-yaml",
         type=Path,
-        default=Path("glove.yaml"),
+        default=Path(os.getenv("GLOVE_YAML", "glove.yaml")),
         help="手套数据集 yaml",
     )
     parser.add_argument(

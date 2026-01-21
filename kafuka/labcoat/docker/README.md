@@ -41,7 +41,7 @@ docker run --name labcoat \
   -v /Users/peiyandong/Documents/code/ai/yolo-test:/Users/peiyandong/Documents/code/ai/yolo-test:ro \
   labcoat-consumer
 
-  docker run --name labcoat \
+docker run --name labcoat \
   --network host \
   -e KAFKA_BOOTSTRAP_SERVERS=localhost:9092 \
   -e KAFKA_TOPIC=ppe_alarm \
@@ -60,14 +60,24 @@ docker run --name labcoat \
 CUDA 运行示例：
 
 ```bash
-docker run --rm --gpus all \
+docker run --name labcoat-consumer --gpus all \
+  --restart=always \
+  --network host \
   -e KAFKA_BOOTSTRAP_SERVERS=10.10.6.13:9092 \
+  -e KAFKA_TOPIC=ppe_alarm \
+  -e KAFKA_ALARM_TOPIC=ppe_alarm_result \
+  -e KAFKA_GROUP_ID=ppe-alarm-consumer \
+  -e KAFKA_BATCH_SIZE=10 \
+  -e KAFKA_MAX_WAIT_SEC=2 \
+  -e KAFKA_AUTO_OFFSET_RESET=latest \
+  -e LABCOAT_MODEL_PATH=/app/model/labcoat.pt \
+  -e GLOVE_MODEL_PATH=/app/model/glove.pt \
   -e MODEL_DEVICE=cuda \
-  -e MODEL_GPU=0 \
-  -v $(pwd)/kafuka:/app/kafuka:ro \
-  -v $(pwd)/model:/app/model:ro \
-  -v /Users/peiyandong/Documents/code/ai/yolo-test:/Users/peiyandong/Documents/code/ai/yolo-test:ro \
-  labcoat-consumer:cuda
+  -e MODEL_GPU=1 \
+  -v /mnt/nfs/code/kafuka:/app/kafuka:ro \
+  -v /mnt/nfs/models:/app/model:ro \
+  -v /mnt/nfs/collector:/mnt/nfs/collector:ro \
+  labcoat-consumer:v1-amd64
 ```
 
 如果 Kafka 在同一台宿主机：
