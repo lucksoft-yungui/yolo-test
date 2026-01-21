@@ -45,7 +45,7 @@ docker run --name headcount \
   -v /Users/peiyandong/Documents/code/ai/yolo-test:/Users/peiyandong/Documents/code/ai/yolo-test:ro \
   headcount-consumer
 
-  docker run --name headcount \
+docker run --name headcount \
   --network host \
   -e KAFKA_BOOTSTRAP_SERVERS=localhost:9092 \
   -e KAFKA_TOPIC=unattended_alarm \
@@ -68,19 +68,29 @@ docker run --name headcount \
 CUDA 运行示例：
 
 ```bash
-docker run --rm --gpus all \
+docker run --name headcount-consumer --gpus all \
+  --restart=always \
+  --network host \
   -e KAFKA_BOOTSTRAP_SERVERS=10.10.6.13:9092 \
+  -e KAFKA_TOPIC=unattended_alarm \
+  -e KAFKA_ALARM_TOPIC=unattended_alarm_result \
+  -e KAFKA_GROUP_ID=unattended-alarm-consumer \
+  -e KAFKA_BATCH_SIZE=10 \
+  -e KAFKA_MAX_WAIT_SEC=2 \
+  -e KAFKA_AUTO_OFFSET_RESET=latest \
   -e MODEL_DEVICE=cuda \
-  -e MODEL_GPU=0 \
-  -e HEADCOUNT_MODEL_PATH=/app/yolo11n.pt \
-  -e HEADCOUNT_CONF=0.5 \
+  -e MODEL_GPU=3 \
+  -e HEADCOUNT_MODEL_PATH=/app/model/yolo11s.pt \
+  -e HEADCOUNT_CONF=0.3 \
   -e HEADCOUNT_TIME_START=00:00 \
   -e HEADCOUNT_TIME_END=08:00 \
-  -v $(pwd)/kafuka:/app/kafuka:ro \
-  -v $(pwd)/yolo11n.pt:/app/yolo11n.pt:ro \
-  -v /Users/peiyandong/Documents/code/ai/yolo-test:/Users/peiyandong/Documents/code/ai/yolo-test:ro \
-  headcount-consumer:cuda
+  -v /mnt/nfs/code/kafuka:/app/kafuka:ro \
+  -v /mnt/nfs/models:/app/model:ro \
+  -v /mnt/nfs/collector:/mnt/nfs/collector:ro \
+  headcount-consumer:v1-amd64
 ```
+
+提示：如需更多 Kafka 参数（如 `KAFKA_MAX_BATCHES`），见下方参数说明。
 
 如果 Kafka 在同一台宿主机：
 - macOS/Windows 用 `host.docker.internal:9092`
