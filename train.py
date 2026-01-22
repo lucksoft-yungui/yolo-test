@@ -70,7 +70,7 @@ def parse_args():
         "--device",
         type=str,
         default=None,
-        help="指定训练设备，如 cpu/mps/cuda/cuda:0/0（不填则自动检测）",
+        help="指定训练设备，如 cpu/mps/cuda/cuda:0/0 或 0,1,2（多卡）（不填则自动检测）",
     )
     parser.add_argument("--runs-dir", type=str, help="训练输出目录（默认为 project 设置）")
     parser.add_argument("--project", type=str, help="自定义 Ultralytics 项目目录（默认 model）")
@@ -119,6 +119,22 @@ def resolve_device(device_arg: Optional[str]) -> str:
         return check_mps_support()
 
     device = device_arg.strip()
+    if "," in device:
+        indices = [part.strip() for part in device.split(",") if part.strip() != ""]
+        if not indices or any(not idx.isdigit() for idx in indices):
+            print(f"❌ 不支持的 device 参数: {device_arg}，多卡请使用如 0,1,2 的格式")
+            sys.exit(1)
+        if not torch.cuda.is_available():
+            print("❌ 指定 CUDA 多卡但当前环境未检测到可用 GPU")
+            sys.exit(1)
+        max_count = torch.cuda.device_count()
+        bad = [idx for idx in indices if int(idx) >= max_count]
+        if bad:
+            print(f"❌ 指定 GPU 索引超出范围: {', '.join(bad)}，可用数量: {max_count}")
+            sys.exit(1)
+        print(f"✅ 指定使用 CUDA 多卡: {', '.join(indices)}")
+        return ",".join(indices)
+
     if device.isdigit():
         device = f"cuda:{device}"
     device_lower = device.lower()
