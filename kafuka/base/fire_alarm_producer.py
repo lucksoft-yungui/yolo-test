@@ -30,8 +30,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--image-dir",
         type=Path,
-        default=Path("datasets/fire/images"),
-        help="从目录递归收集 .jpg 图片，默认 datasets/fire/images",
+        default=Path("datasets/fire-lab/images/train"),
+        help="从目录递归收集 .jpg 图片，默认 datasets/fire-lab/images/train",
     )
     parser.add_argument(
         "--limit",

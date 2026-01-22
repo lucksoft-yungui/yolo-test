@@ -32,6 +32,7 @@ ENV KAFKA_BOOTSTRAP_SERVERS=localhost:9092 \
     MODEL_CONF=0.6 \
     MODEL_DEVICE= \
     MODEL_GPU=0 \
+    MODEL_IMGSZ=0 \
     TARGET_CLASS_NAME=fire \
     TARGET_CLASS_INDEX=0
 
@@ -46,6 +47,7 @@ CMD ["/bin/sh", "-c", "uv run python /app/kafuka/base/alarm_consumer.py \
   --auto-offset-reset ${KAFKA_AUTO_OFFSET_RESET} \
   --model ${MODEL_PATH} \
   --conf ${MODEL_CONF} \
+  ${MODEL_IMGSZ:+--imgsz ${MODEL_IMGSZ}} \
   ${MODEL_DEVICE:+--device ${MODEL_DEVICE}} \
   --gpu ${MODEL_GPU} \
   --target-class-name ${TARGET_CLASS_NAME} \

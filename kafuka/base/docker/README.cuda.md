@@ -30,6 +30,7 @@ docker run --restart=always --gpus all \
   -e MODEL_DEVICE=cuda \
   -e MODEL_GPU=0 \
   -e MODEL_CONF=0.6 \
+  -e MODEL_IMGSZ=1920 \
   -e TARGET_CLASS_INDEX=0 \
   -v /mnt/nfs/datasets:/mnt/nfs/datasets:ro \
   -v $(pwd)/kafuka:/app/kafuka:ro \
@@ -49,6 +50,7 @@ docker run --restart=always --gpus all \
   -e MODEL_DEVICE=cuda \
   -e MODEL_GPU=0 \
   -e MODEL_CONF=0.6 \
+  -e MODEL_IMGSZ=1920 \
   -e TARGET_CLASS_INDEX=0 \
   -e MODEL_PATH=/app/model/fire-kaggle/weights/best.pt \
   -v /mnt/nfs/datasets:/mnt/nfs/datasets:ro \
@@ -65,6 +67,7 @@ docker run --restart=always --gpus all \
 - `MODEL_DEVICE=cuda`
 - `MODEL_GPU=0`
 - `MODEL_CONF=0.6`
+- `MODEL_IMGSZ=0`
 - `TARGET_CLASS_NAME=fire`
 - `TARGET_CLASS_INDEX=0`
 - `MODEL_PATH=/app/model/fire-kaggle/weights/best.pt`

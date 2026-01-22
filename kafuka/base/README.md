@@ -46,7 +46,10 @@ uv run python kafuka/base/alarm_consumer.py \
   --topic fire-alarm \
   --alarm-topic fire-alarm-result \
   --batch-size 10 \
-  --model model/fire-kaggle/weights/best.pt
+  --model model/fire-lab/best.pt \
+  --conf 0.6 \
+  --imgsz 1280 \
+  --debug
 
 uv run python kafuka/base/alarm_consumer.py \
   --bootstrap-servers 10.10.6.13:9092 \
@@ -54,7 +57,9 @@ uv run python kafuka/base/alarm_consumer.py \
   --alarm-topic fire-alarm-result \
   --batch-size 10 \
   --model model/fire-kaggle/weights/best.pt \
-  --device mps
+  --device mps \
+  --imgsz 1920 \
+  --debug
 ```
 
 ## 手动推送消息
@@ -65,7 +70,7 @@ uv run python kafuka/base/alarm_consumer.py \
 uv run python kafuka/base/fire_alarm_producer.py \
   --bootstrap-servers localhost:9092 \
   --topic fire-alarm \
-  --image-dir datasets/fire/images \
+  --image-dir datasets/fire-lab/images \
   --limit 23
 
 uv run python kafuka/base/fire_alarm_producer.py \
@@ -102,6 +107,8 @@ uv run python kafuka/base/fire_alarm_producer_online.py \
 - `--max-wait-sec` 等待凑满批次的最长时间
 - `--model` 模型权重路径
 - `--conf` 置信度阈值
+- `--imgsz` 推理输入尺寸（正方形边长，如 1920/1280/640；不填或 0 表示模型默认）
+- `--debug` 调试模式，保存识别结果图到 `kafuka/base/debug`
 - `--device` 推理设备（cpu / cuda / mps）
 - `--target-class-name` 目标类别名称（默认 `fire`）
 - `--target-class-index` 报警触发的类别索引（默认 `0`）

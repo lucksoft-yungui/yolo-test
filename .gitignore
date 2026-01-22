@@ -162,3 +162,5 @@ yolo11n.pt
 yolo11s.pt
 
 *.pt
+
+kafuka/base/debug/

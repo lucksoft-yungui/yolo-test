@@ -1,5 +1,6 @@
 import argparse
 import json
+import shutil
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -103,6 +104,17 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=0,
         help="报警触发的类别索引，默认 0",
+    )
+    parser.add_argument(
+        "--imgsz",
+        type=int,
+        default=0,
+        help="推理输入图片尺寸（正方形边长，如 1920/1280/640），0 表示使用模型默认",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="开启调试输出，保存识别图片到 kafuka/base/debug",
     )
     return parser.parse_args()
 
@@ -216,6 +228,15 @@ def main() -> None:
         f"group={args.group_id}，offset={args.auto_offset_reset}",
         flush=True,
     )
+    debug_dir = Path("kafuka/base/debug")
+    if args.debug:
+        debug_dir.mkdir(parents=True, exist_ok=True)
+        # 启动时清空调试目录，避免堆积旧图片
+        for path in debug_dir.iterdir():
+            if path.is_dir():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
     batch_count = 0
     while True:
         print("等待拉取消息...", flush=True)
@@ -243,8 +264,12 @@ def main() -> None:
 
         # 使用列表一次性推理，实现批量合并计算
         inference_start = time.monotonic()
-        results = model(images, conf=args.conf, verbose=False)
+        predict_kwargs = {"conf": args.conf, "verbose": False}
+        if args.imgsz and args.imgsz > 0:
+            predict_kwargs["imgsz"] = args.imgsz
+        results = model(images, **predict_kwargs)
         inference_elapsed = time.monotonic() - inference_start
+        hit_count = 0
         for entry, result in zip(valid_entries, results):
             fire_boxes: list[dict[str, object]] = []
             for box in result.boxes:
@@ -254,6 +279,13 @@ def main() -> None:
                     coords = [float(v) for v in box.xyxy[0]]
                     fire_boxes.append({"conf": conf, "xyxy": coords})
             if fire_boxes:
+                hit_count += 1
+                if args.debug:
+                    annotated = result.plot()
+                    image_name = Path(entry.photo_path).name
+                    suffix = int(time.time() * 1000)
+                    debug_path = debug_dir / f"{Path(image_name).stem}_{entry.device_id}_{suffix}.jpg"
+                    cv2.imwrite(str(debug_path), annotated)
                 alarm_payload = [
                     {
                         "topic": args.topic,
@@ -281,6 +313,7 @@ def main() -> None:
         batch_count += 1
         print(
             f"处理批次: {batch_count}, 消息数: {len(raw_messages)}, 有效图片: {len(images)}, "
+            f"命中数: {hit_count}, "
             f"推理耗时: {inference_elapsed:.2f}s",
             flush=True,
         )
