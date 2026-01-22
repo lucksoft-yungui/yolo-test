@@ -60,7 +60,7 @@ docker run --name labcoat \
 CUDA 运行示例：
 
 ```bash
-docker run --name labcoat-consumer --gpus all \
+docker run --name labcoat-consumer --gpus '"device=1"' \
   --restart=always \
   --network host \
   -e KAFKA_BOOTSTRAP_SERVERS=10.10.6.13:9092 \
@@ -72,8 +72,10 @@ docker run --name labcoat-consumer --gpus all \
   -e KAFKA_AUTO_OFFSET_RESET=latest \
   -e LABCOAT_MODEL_PATH=/app/model/labcoat.pt \
   -e GLOVE_MODEL_PATH=/app/model/glove.pt \
+  -e LABCOAT_CONF=0.9 \
+  -e GLOVE_CONF=0.8 \
   -e MODEL_DEVICE=cuda \
-  -e MODEL_GPU=1 \
+  -e MODEL_GPU=0 \
   -v /mnt/nfs/code/kafuka:/app/kafuka:ro \
   -v /mnt/nfs/models:/app/model:ro \
   -v /mnt/nfs/collector:/mnt/nfs/collector:ro \

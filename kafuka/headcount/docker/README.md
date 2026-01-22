@@ -81,12 +81,13 @@ docker run --name headcount-consumer --gpus all \
   -e MODEL_DEVICE=cuda \
   -e MODEL_GPU=3 \
   -e HEADCOUNT_MODEL_PATH=/app/model/yolo11s.pt \
-  -e HEADCOUNT_CONF=0.3 \
+  -e HEADCOUNT_CONF=0.8 \
   -e HEADCOUNT_TIME_START=00:00 \
   -e HEADCOUNT_TIME_END=08:00 \
   -v /mnt/nfs/code/kafuka:/app/kafuka:ro \
   -v /mnt/nfs/models:/app/model:ro \
   -v /mnt/nfs/collector:/mnt/nfs/collector:ro \
+  -v /etc/localtime:/etc/localtime:ro \
   headcount-consumer:v1-amd64
 ```
 
