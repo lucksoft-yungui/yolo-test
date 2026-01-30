@@ -4,4 +4,4 @@ val: images/val
 names:
   0: with white labcoat
   1: no labcoat
-  3: with blue labcoat
+  2: with blue labcoat
