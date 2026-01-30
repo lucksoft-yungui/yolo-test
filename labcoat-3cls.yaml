@@ -1,0 +1,7 @@
+path: datasets/labcoat-3cls
+train: images/train
+val: images/val
+names:
+  0: with white labcoat
+  1: no labcoat
+  3: with blue labcoat

@@ -48,7 +48,17 @@ uv run python kafuka/base/alarm_consumer.py \
   --batch-size 10 \
   --model model/fire-lab/best.pt \
   --conf 0.6 \
-  --imgsz 1280 \
+  --imgsz 1920 \
+  --debug
+
+  uv run python kafuka/base/alarm_consumer.py \
+  --bootstrap-servers localhost:9092 \
+  --topic fire-alarm \
+  --alarm-topic fire-alarm-result \
+  --batch-size 10 \
+  --model model/fire-lab/best_1280_68_bak.pt \
+  --conf 0.6 \
+  --imgsz 1920 \
   --debug
 
 uv run python kafuka/base/alarm_consumer.py \
