@@ -164,3 +164,7 @@ yolo11s.pt
 *.pt
 
 kafuka/base/debug/
+
+val/labcoat-3cls/annotated/
+
+val/labcoat-3cls/images/
