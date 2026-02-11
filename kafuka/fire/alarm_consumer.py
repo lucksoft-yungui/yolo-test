@@ -1,0 +1,383 @@
+import argparse
+import json
+import shutil
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterable
+
+import cv2
+from kafka import KafkaConsumer, KafkaProducer
+from ultralytics import YOLO
+
+
+@dataclass
+class AlarmMessage:
+    device_id: str
+    area_id: str
+    photo_path: str
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="订阅 Kafka 主题并批量执行目标检测")
+    parser.add_argument(
+        "--bootstrap-servers",
+        type=str,
+        default="localhost:9092",
+        help="Kafka 地址，默认 localhost:9092",
+    )
+    parser.add_argument(
+        "--topic",
+        type=str,
+        default="fire-alarm",
+        help="Kafka 主题，默认 fire-alarm",
+    )
+    parser.add_argument(
+        "--alarm-topic",
+        type=str,
+        default="fire-alarm-result",
+        help="报警消息推送主题，默认 fire-alarm-result",
+    )
+    parser.add_argument(
+        "--group-id",
+        type=str,
+        default="fire-alarm-consumer",
+        help="消费者组 ID",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=10,
+        help="每次拉取消息数量，默认 10",
+    )
+    parser.add_argument(
+        "--max-wait-sec",
+        type=float,
+        default=2.0,
+        help="等待凑满批次的最长时间（秒），默认 2",
+    )
+    parser.add_argument(
+        "--max-batches",
+        type=int,
+        default=0,
+        help="最多处理的批次数，0 表示不限制",
+    )
+    parser.add_argument(
+        "--auto-offset-reset",
+        type=str,
+        default="latest",
+        choices=["latest", "earliest", "none"],
+        help="起始偏移策略，默认 latest",
+    )
+    parser.add_argument(
+        "--model",
+        type=Path,
+        default=Path("model/fire-kaggle/weights/best.pt"),
+        help="模型权重路径，默认 model/fire-kaggle/weights/best.pt",
+    )
+    parser.add_argument(
+        "--conf",
+        type=float,
+        default=0.6,
+        help="置信度阈值，默认 0.6",
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default=None,
+        help="指定设备，例如 cpu / cuda / mps，不填则自动选择",
+    )
+    parser.add_argument(
+        "--gpu",
+        type=int,
+        default=-1,
+        help="指定 GPU 序号（如 0），仅在未指定 --device 时生效",
+    )
+    parser.add_argument(
+        "--target-class-name",
+        type=str,
+        default="fire",
+        help="报警触发的类别名称，支持逗号分隔多个（如 fire,smoke）",
+    )
+    parser.add_argument(
+        "--target-class-index",
+        type=str,
+        default="0",
+        help="报警触发的类别索引，支持逗号分隔多个（如 0,1）",
+    )
+    parser.add_argument(
+        "--imgsz",
+        type=int,
+        default=0,
+        help="推理输入图片尺寸（正方形边长，如 1920/1280/640），0 表示使用模型默认",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="开启调试输出，保存识别图片到 kafuka/fire/debug",
+    )
+    return parser.parse_args()
+
+
+def load_model(weight_path: Path, device: str | None, class_names: list[str] | None) -> YOLO:
+    if not weight_path.exists():
+        raise FileNotFoundError(f"未找到模型文件: {weight_path}")
+    model = YOLO(str(weight_path))
+    if class_names and hasattr(model, "model") and hasattr(model.model, "names"):
+        if len(class_names) == len(model.model.names):
+            model.model.names = {i: name for i, name in enumerate(class_names)}
+    if device:
+        model.to(device)
+    return model
+
+
+def normalize_device_label(device_value: str) -> str:
+    device_value = device_value.lower()
+    if device_value.startswith("cuda"):
+        return "cuda"
+    if device_value.startswith("mps"):
+        return "mps"
+    if device_value.startswith("cpu"):
+        return "cpu"
+    return device_value
+
+
+def resolve_model_device(model: YOLO, requested_device: str | None) -> str:
+    if requested_device:
+        return normalize_device_label(requested_device)
+    detected_device = getattr(model, "device", None)
+    if detected_device is None and hasattr(model, "model"):
+        detected_device = getattr(model.model, "device", None)
+    if detected_device is None:
+        return "unknown"
+    return normalize_device_label(str(detected_device))
+
+
+def decode_messages(raw: str) -> list[AlarmMessage]:
+    payload = json.loads(raw)
+    if isinstance(payload, dict):
+        payload = [payload]
+    if not isinstance(payload, list):
+        raise ValueError("消息体必须是对象或数组")
+    results: list[AlarmMessage] = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        device_id = str(item.get("deviceId", "")).strip()
+        area_id = str(item.get("areaId", "")).strip()
+        photo_path = str(item.get("photoPath", "")).strip()
+        if not device_id or not photo_path:
+            continue
+        results.append(AlarmMessage(device_id=device_id, area_id=area_id, photo_path=photo_path))
+    return results
+
+
+def parse_multi_values(raw: str) -> list[str]:
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def get_model_name_map(model: YOLO) -> dict[int, str]:
+    names = getattr(model, "names", None)
+    if names is None and hasattr(model, "model"):
+        names = getattr(model.model, "names", None)
+    if names is None:
+        return {}
+    if isinstance(names, dict):
+        return {int(i): str(name) for i, name in names.items()}
+    if isinstance(names, list):
+        return {i: str(name) for i, name in enumerate(names)}
+    return {}
+
+
+def resolve_target_class_ids(
+    target_indices_arg: str,
+    target_names_arg: str,
+    model_names: dict[int, str],
+) -> set[int]:
+    target_ids: set[int] = set()
+    for raw_index in parse_multi_values(target_indices_arg):
+        target_ids.add(int(raw_index))
+    target_names = set(parse_multi_values(target_names_arg))
+    if target_names and model_names:
+        for class_id, class_name in model_names.items():
+            if class_name in target_names:
+                target_ids.add(class_id)
+    return target_ids
+
+
+def poll_batch(consumer: KafkaConsumer, batch_size: int, max_wait_sec: float) -> list[str]:
+    messages: list[str] = []
+    start = time.monotonic()
+    while len(messages) < batch_size:
+        remaining = batch_size - len(messages)
+        records = consumer.poll(timeout_ms=500, max_records=remaining)
+        for _, msgs in records.items():
+            for msg in msgs:
+                if isinstance(msg.value, bytes):
+                    messages.append(msg.value.decode("utf-8"))
+                else:
+                    messages.append(str(msg.value))
+        if messages and (time.monotonic() - start) >= max_wait_sec:
+            break
+    return messages
+
+
+def iter_images(entries: Iterable[AlarmMessage]) -> tuple[list[AlarmMessage], list[object]]:
+    valid_entries: list[AlarmMessage] = []
+    images: list[object] = []
+    for entry in entries:
+        img = cv2.imread(entry.photo_path)
+        if img is None:
+            print(f"读取图片失败: {entry.photo_path}")
+            continue
+        valid_entries.append(entry)
+        images.append(img)
+    return valid_entries, images
+
+
+def main() -> None:
+    args = parse_args()
+    print(f"运行参数: {vars(args)}", flush=True)
+    device = args.device
+    if device is None and args.gpu >= 0:
+        device = f"cuda:{args.gpu}"
+    custom_names = parse_multi_values(args.target_class_name)
+    model = load_model(args.model, device, custom_names)
+    device_label = resolve_model_device(model, device)
+    print(f"当前使用算力: {device_label}", flush=True)
+    model_name_map = get_model_name_map(model)
+    target_class_ids = resolve_target_class_ids(
+        args.target_class_index,
+        args.target_class_name,
+        model_name_map,
+    )
+    if not target_class_ids:
+        raise ValueError(
+            "未解析到有效的目标类别，请检查 --target-class-index / --target-class-name 参数"
+        )
+    resolved_names = [model_name_map.get(i, f"class_{i}") for i in sorted(target_class_ids)]
+    print(
+        f"目标类别: ids={sorted(target_class_ids)}, names={resolved_names}",
+        flush=True,
+    )
+
+    consumer = KafkaConsumer(
+        args.topic,
+        bootstrap_servers=args.bootstrap_servers,
+        group_id=args.group_id,
+        enable_auto_commit=False,
+        auto_offset_reset=args.auto_offset_reset,
+        value_deserializer=lambda v: v,
+    )
+    producer = KafkaProducer(bootstrap_servers=args.bootstrap_servers)
+
+    print(
+        f"开始订阅 {args.bootstrap_servers} / {args.topic}，批量 {args.batch_size} 条，模型 {args.model}，"
+        f"group={args.group_id}，offset={args.auto_offset_reset}",
+        flush=True,
+    )
+    debug_dir = Path("kafuka/fire/debug")
+    if args.debug:
+        debug_dir.mkdir(parents=True, exist_ok=True)
+        # 启动时清空调试目录，避免堆积旧图片
+        for path in debug_dir.iterdir():
+            if path.is_dir():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+    batch_count = 0
+    while True:
+        print("等待拉取消息...", flush=True)
+        raw_messages = poll_batch(consumer, args.batch_size, args.max_wait_sec)
+        print(f"拉取完成，原始消息数={len(raw_messages)}", flush=True)
+        if not raw_messages:
+            continue
+        entries: list[AlarmMessage] = []
+        for raw in raw_messages:
+            try:
+                entries.extend(decode_messages(raw))
+            except Exception as exc:
+                print(f"解析消息失败: {exc}，原始内容: {raw}", flush=True)
+
+        if not entries:
+            print("没有有效消息，跳过本批次。", flush=True)
+            continue
+        print(f"解析到 {len(entries)} 条消息。", flush=True)
+
+        valid_entries, images = iter_images(entries)
+        if not images:
+            print("没有可用图片，跳过本批次。", flush=True)
+            continue
+        print(f"有效图片数量: {len(images)}", flush=True)
+
+        # 使用列表一次性推理，实现批量合并计算
+        inference_start = time.monotonic()
+        predict_kwargs = {"conf": args.conf, "verbose": False}
+        if args.imgsz and args.imgsz > 0:
+            predict_kwargs["imgsz"] = args.imgsz
+        results = model(images, **predict_kwargs)
+        inference_elapsed = time.monotonic() - inference_start
+        hit_count = 0
+        for entry, result in zip(valid_entries, results):
+            fire_boxes: list[dict[str, object]] = []
+            for box in result.boxes:
+                cls_id = int(box.cls[0])
+                if cls_id in target_class_ids:
+                    conf = float(box.conf[0]) if hasattr(box, "conf") else None
+                    coords = [float(v) for v in box.xyxy[0]]
+                    fire_boxes.append(
+                        {
+                            "classId": cls_id,
+                            "className": model_name_map.get(cls_id, f"class_{cls_id}"),
+                            "conf": conf,
+                            "xyxy": coords,
+                        }
+                    )
+            if fire_boxes:
+                hit_count += 1
+                if args.debug:
+                    annotated = result.plot()
+                    image_name = Path(entry.photo_path).name
+                    suffix = int(time.time() * 1000)
+                    debug_path = debug_dir / f"{Path(image_name).stem}_{entry.device_id}_{suffix}.jpg"
+                    cv2.imwrite(str(debug_path), annotated)
+                alarm_payload = [
+                    {
+                        "topic": args.topic,
+                        "deviceId": entry.device_id,
+                        "areaId": entry.area_id,
+                        "photoPath": entry.photo_path,
+                        "boxes": fire_boxes,
+                    }
+                ]
+                producer.send(
+                    args.alarm_topic,
+                    json.dumps(alarm_payload).encode("utf-8"),
+                )
+                print(
+                    f"检测到目标: deviceId={entry.device_id}, photoPath={entry.photo_path}, "
+                    f"boxes={len(fire_boxes)}",
+                    flush=True,
+                )
+            else:
+                print(
+                    f"未检测到目标: deviceId={entry.device_id}, photoPath={entry.photo_path}",
+                    flush=True,
+                )
+
+        batch_count += 1
+        print(
+            f"处理批次: {batch_count}, 消息数: {len(raw_messages)}, 有效图片: {len(images)}, "
+            f"命中数: {hit_count}, "
+            f"推理耗时: {inference_elapsed:.2f}s",
+            flush=True,
+        )
+        producer.flush()
+        consumer.commit()
+        if args.max_batches > 0 and batch_count >= args.max_batches:
+            print("已达到最大批次限制，退出。", flush=True)
+            break
+
+
+if __name__ == "__main__":
+    main()
