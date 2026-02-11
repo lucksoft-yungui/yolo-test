@@ -2,6 +2,7 @@ import argparse
 import json
 from pathlib import Path
 import re
+import shutil
 from typing import Any
 
 from ultralytics import YOLO
@@ -94,7 +95,7 @@ def collect_images(images_dir: Path) -> list[Path]:
         raise FileNotFoundError(f"未找到图片目录: {images_dir}")
     if not images_dir.is_dir():
         raise NotADirectoryError(f"图片路径不是目录: {images_dir}")
-    images = [p for p in images_dir.iterdir() if p.suffix.lower() in IMAGE_EXTS]
+    images = [p for p in images_dir.rglob("*") if p.is_file() and p.suffix.lower() in IMAGE_EXTS]
     return sorted(images)
 
 
@@ -121,6 +122,8 @@ def main() -> None:
 
     vis_dir = Path("val/labcoat-3cls/annotated")
     if args.save_vis:
+        if vis_dir.exists():
+            shutil.rmtree(vis_dir)
         vis_dir.mkdir(parents=True, exist_ok=True)
 
     results_payload: list[dict[str, Any]] = []
@@ -165,7 +168,9 @@ def main() -> None:
 
         if args.save_vis:
             annotated = result.plot()
-            out_path = vis_dir / image_path.name
+            relative_path = image_path.relative_to(args.images)
+            out_path = vis_dir / relative_path
+            out_path.parent.mkdir(parents=True, exist_ok=True)
             # 通过结果自带的 BGR 图直接写入
             import cv2
 

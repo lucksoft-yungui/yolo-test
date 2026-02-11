@@ -5,18 +5,18 @@
 ## 快速开始
 
 ```bash
-uv run python val/labcoat-3cls/val.py
+uv run python val/labcoat-3cls/val.py --conf 0.6 --save-vis
 ```
 
 ## 参数说明
 
-- `--images` 待检测图片目录，默认 `val/labcoat-3cls/images`
+- `--images` 待检测图片目录（支持递归子目录），默认 `val/labcoat-3cls/images`
 - `--model` 模型权重路径，默认 `model/labcoat-3cls/best.pt`
 - `--yaml` 类别配置 YAML，默认 `labcoat-3cls.yaml`
 - `--conf` 置信度阈值，默认 `0.6`
 - `--device` 指定设备，例如 `cpu` / `cuda` / `mps`
 - `--output` 输出 JSON 路径，默认 `val/labcoat-3cls/predictions.json`
-- `--save-vis` 保存可视化结果到 `val/labcoat-3cls/annotated`
+- `--save-vis` 保存可视化结果到 `val/labcoat-3cls/annotated`，并保持与 `--images` 相同的子目录结构；每次运行会先清空该目录
 
 ## 输出说明
 
@@ -51,5 +51,5 @@ uv run python val/labcoat-3cls/val.py
 
 ## 常见问题
 
-- 目录中无图片会报错，请确认 `val/labcoat-3cls/images` 下有图片。
+- 目录中无图片会报错，脚本会递归查找 `--images` 下的所有子目录图片。
 - 如果 `labcoat-3cls.yaml` 中类别名称调整，输出也会自动更新。

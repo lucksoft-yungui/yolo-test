@@ -166,10 +166,15 @@ uv run python train.py --file glove.yaml --model-size yolo11s --epochs 50 --imgs
 
 uv run python train.py --file fire-lab.yaml --model-size yolo11s --epochs 50 --imgsz 1920 --patience 10 --device 0,1,2,3
 
-uv run python train.py --file fire-lab.yaml --model-size yolo11s --epochs 50 --imgsz 640 --patience 10 --device 0,1,2,3
+uv run python train.py --file fire-lab.yaml --model-size yolo11s --epochs 100 --imgsz 1280 --patience 10 --device 0,1,2,3
 
+uv run python train.py --file fire-lab.yaml --model-size yolo11s --epochs 100 --imgsz 640 --patience 10 --device 0,1,2,3
 
-uv run python train.py --file labcoat-3cls.yaml --model-size yolo11s --epochs 50 --imgsz 1280 --patience 10 --device 0,1,2,3
+uv run python train.py --file labcoat-3cls.yaml --model-size yolo11s --epochs 100 --imgsz 1280 --patience 10 --device 0,1,2,3
 
 uv run python train.py --file labcoat-3cls.yaml --model-size yolo11s --epochs 50 --imgsz 1920 --patience 10 --device 0,1,2,3
+
+uv run python train.py --file labcoat-3cls.yaml --model-size yolo11s --epochs 100 --imgsz 640 --patience 10 --device 0,1,2,3
+
+uv run python train.py --file labcoat-3cls.yaml --model-size yolo11m --epochs 100 --imgsz 640 --patience 10 --device 0,1,2,3
 ```
