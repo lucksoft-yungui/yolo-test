@@ -31,7 +31,7 @@ def parse_args() -> argparse.Namespace:
         "--image-dir",
         type=Path,
         default=Path("datasets/fire-lab/images/train"),
-        help="从目录递归收集 .jpg 图片，默认 datasets/fire-lab/images/train",
+        help="从目录递归收集图片（jpg/jpeg/png），默认 datasets/fire-lab/images/train",
     )
     parser.add_argument(
         "--limit",
@@ -55,6 +55,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def collect_images(paths: list[Path], image_dir: Path) -> list[Path]:
+    allowed_suffixes = {".jpg", ".jpeg", ".png"}
     images: list[Path] = []
     seen = set()
     for path in paths:
@@ -67,7 +68,9 @@ def collect_images(paths: list[Path], image_dir: Path) -> list[Path]:
             print(f"图片不存在，已跳过: {path}")
 
     if image_dir.exists():
-        for path in sorted(image_dir.rglob("*.jpg")):
+        for path in sorted(image_dir.rglob("*")):
+            if not path.is_file() or path.suffix.lower() not in allowed_suffixes:
+                continue
             resolved = path.resolve()
             if resolved not in seen:
                 images.append(resolved)

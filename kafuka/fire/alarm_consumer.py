@@ -333,13 +333,15 @@ def main() -> None:
                             "xyxy": coords,
                         }
                     )
+            image_name = Path(entry.photo_path).name
+            suffix = int(time.time() * 1000)
             if fire_boxes:
                 hit_count += 1
                 if args.debug:
                     annotated = result.plot()
-                    image_name = Path(entry.photo_path).name
-                    suffix = int(time.time() * 1000)
-                    debug_path = debug_dir / f"{Path(image_name).stem}_{entry.device_id}_{suffix}.jpg"
+                    debug_path = (
+                        debug_dir / f"{Path(image_name).stem}_{entry.device_id}_hit_{suffix}.jpg"
+                    )
                     cv2.imwrite(str(debug_path), annotated)
                 alarm_payload = [
                     {
@@ -364,6 +366,12 @@ def main() -> None:
                     f"未检测到目标: deviceId={entry.device_id}, photoPath={entry.photo_path}",
                     flush=True,
                 )
+                if args.debug:
+                    annotated = result.plot()
+                    debug_path = (
+                        debug_dir / f"{Path(image_name).stem}_{entry.device_id}_miss_{suffix}.jpg"
+                    )
+                    cv2.imwrite(str(debug_path), annotated)
 
         batch_count += 1
         print(
