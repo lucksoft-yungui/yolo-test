@@ -177,4 +177,6 @@ uv run python train.py --file labcoat-3cls.yaml --model-size yolo11s --epochs 50
 uv run python train.py --file labcoat-3cls.yaml --model-size yolo11s --epochs 100 --imgsz 640 --patience 10 --device 0,1,2,3
 
 uv run python train.py --file labcoat-3cls.yaml --model-size yolo11m --epochs 100 --imgsz 640 --patience 10 --device 0,1,2,3
+
+uv run python train.py --file exposed-skin.yaml --model-size yolo11m --epochs 50 --imgsz 640 --patience 20 --device 0,1,2,3
 ```

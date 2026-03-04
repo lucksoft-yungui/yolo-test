@@ -1,0 +1,246 @@
+{
+  "model": "model/exposed-skin/best.pt",
+  "images_dir": "val/exposed-skin/images",
+  "class_names": [
+    "exposed-skin"
+  ],
+  "summary": {
+    "exposed-skin": 14
+  },
+  "results": [
+    {
+      "image": "val/exposed-skin/images/exposed skin_yanzheng (1).jpg",
+      "classes": [
+        "exposed-skin"
+      ],
+      "detections": [
+        {
+          "class_id": 0,
+          "class_name": "exposed-skin",
+          "confidence": 0.7573915719985962,
+          "box": [
+            889.0671997070312,
+            1276.9010009765625,
+            1042.6231689453125,
+            1373.855712890625
+          ]
+        },
+        {
+          "class_id": 0,
+          "class_name": "exposed-skin",
+          "confidence": 0.6530202627182007,
+          "box": [
+            1156.3382568359375,
+            1312.3697509765625,
+            1272.6524658203125,
+            1508.7073974609375
+          ]
+        }
+      ]
+    },
+    {
+      "image": "val/exposed-skin/images/exposed skin_yanzheng (10).jpg",
+      "classes": [
+        "exposed-skin"
+      ],
+      "detections": [
+        {
+          "class_id": 0,
+          "class_name": "exposed-skin",
+          "confidence": 0.7980362772941589,
+          "box": [
+            1073.1263427734375,
+            1321.443359375,
+            1276.7254638671875,
+            1464.9788818359375
+          ]
+        },
+        {
+          "class_id": 0,
+          "class_name": "exposed-skin",
+          "confidence": 0.7293704748153687,
+          "box": [
+            1071.8248291015625,
+            1135.220458984375,
+            1190.88525390625,
+            1213.2015380859375
+          ]
+        }
+      ]
+    },
+    {
+      "image": "val/exposed-skin/images/exposed skin_yanzheng (2).jpg",
+      "classes": [
+        "exposed-skin"
+      ],
+      "detections": [
+        {
+          "class_id": 0,
+          "class_name": "exposed-skin",
+          "confidence": 0.7511153817176819,
+          "box": [
+            1810.3446044921875,
+            635.478515625,
+            1915.1649169921875,
+            710.8710327148438
+          ]
+        }
+      ]
+    },
+    {
+      "image": "val/exposed-skin/images/exposed skin_yanzheng (3).jpg",
+      "classes": [
+        "exposed-skin"
+      ],
+      "detections": [
+        {
+          "class_id": 0,
+          "class_name": "exposed-skin",
+          "confidence": 0.6430334448814392,
+          "box": [
+            838.0862426757812,
+            581.5823364257812,
+            939.5216064453125,
+            691.4291381835938
+          ]
+        }
+      ]
+    },
+    {
+      "image": "val/exposed-skin/images/exposed skin_yanzheng (4).jpg",
+      "classes": [
+        "exposed-skin"
+      ],
+      "detections": [
+        {
+          "class_id": 0,
+          "class_name": "exposed-skin",
+          "confidence": 0.6616711020469666,
+          "box": [
+            2067.556884765625,
+            724.6076049804688,
+            2305.640625,
+            894.4619140625
+          ]
+        },
+        {
+          "class_id": 0,
+          "class_name": "exposed-skin",
+          "confidence": 0.6491522789001465,
+          "box": [
+            747.78662109375,
+            743.5337524414062,
+            830.8692016601562,
+            809.1819458007812
+          ]
+        }
+      ]
+    },
+    {
+      "image": "val/exposed-skin/images/exposed skin_yanzheng (5).jpg",
+      "classes": [
+        "exposed-skin"
+      ],
+      "detections": [
+        {
+          "class_id": 0,
+          "class_name": "exposed-skin",
+          "confidence": 0.7577388286590576,
+          "box": [
+            1725.822998046875,
+            751.0263061523438,
+            1883.0107421875,
+            879.2354125976562
+          ]
+        }
+      ]
+    },
+    {
+      "image": "val/exposed-skin/images/exposed skin_yanzheng (6).jpg",
+      "classes": [
+        "exposed-skin"
+      ],
+      "detections": [
+        {
+          "class_id": 0,
+          "class_name": "exposed-skin",
+          "confidence": 0.7107058763504028,
+          "box": [
+            1758.1474609375,
+            617.7962646484375,
+            1868.716064453125,
+            723.6388549804688
+          ]
+        }
+      ]
+    },
+    {
+      "image": "val/exposed-skin/images/exposed skin_yanzheng (7).jpg",
+      "classes": [
+        "exposed-skin"
+      ],
+      "detections": [
+        {
+          "class_id": 0,
+          "class_name": "exposed-skin",
+          "confidence": 0.6549153923988342,
+          "box": [
+            1328.9847412109375,
+            578.29833984375,
+            1428.904052734375,
+            669.5809326171875
+          ]
+        }
+      ]
+    },
+    {
+      "image": "val/exposed-skin/images/exposed skin_yanzheng (8).jpg",
+      "classes": [
+        "exposed-skin"
+      ],
+      "detections": [
+        {
+          "class_id": 0,
+          "class_name": "exposed-skin",
+          "confidence": 0.691681981086731,
+          "box": [
+            1747.8817138671875,
+            742.3980102539062,
+            1864.3470458984375,
+            840.3010864257812
+          ]
+        },
+        {
+          "class_id": 0,
+          "class_name": "exposed-skin",
+          "confidence": 0.6658925414085388,
+          "box": [
+            1738.6363525390625,
+            893.4844970703125,
+            1865.504150390625,
+            1037.673828125
+          ]
+        }
+      ]
+    },
+    {
+      "image": "val/exposed-skin/images/exposed skin_yanzheng (9).jpg",
+      "classes": [
+        "exposed-skin"
+      ],
+      "detections": [
+        {
+          "class_id": 0,
+          "class_name": "exposed-skin",
+          "confidence": 0.7226945757865906,
+          "box": [
+            2066.12646484375,
+            1020.7965698242188,
+            2187.150634765625,
+            1100.0699462890625
+          ]
+        }
+      ]
+    }
+  ]
+}

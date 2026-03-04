@@ -1,0 +1,53 @@
+# Exposed-skin 验证说明
+
+本目录包含 exposed-skin 模型的图片验证脚本与输出说明。
+
+## 快速开始
+
+```bash
+uv run python val/exposed-skin/val.py --conf 0.6 --save-vis
+```
+
+## 参数说明
+
+- `--images` 待检测图片目录（支持递归子目录），默认 `val/exposed-skin/images`
+- `--model` 模型权重路径，默认 `model/exposed-skin/best.pt`
+- `--yaml` 类别配置 YAML，默认 `exposed-skin.yaml`
+- `--conf` 置信度阈值，默认 `0.6`
+- `--device` 指定设备，例如 `cpu` / `cuda` / `mps`
+- `--output` 输出 JSON 路径，默认 `val/exposed-skin/predictions.json`
+- `--save-vis` 保存可视化结果到 `val/exposed-skin/annotated`，并保持与 `--images` 相同的子目录结构；每次运行会先清空该目录
+
+## 输出说明
+
+控制台会打印每张图片命中的类别列表；同时输出 JSON 文件，结构示例：
+
+```json
+{
+  "model": "model/exposed-skin/best.pt",
+  "images_dir": "val/exposed-skin/images",
+  "class_names": ["exposed-skin"],
+  "summary": {
+    "exposed-skin": 24
+  },
+  "results": [
+    {
+      "image": "val/exposed-skin/images/xxx.jpg",
+      "classes": ["exposed-skin"],
+      "detections": [
+        {
+          "class_id": 0,
+          "class_name": "exposed-skin",
+          "confidence": 0.92,
+          "box": [12.3, 45.6, 200.1, 320.8]
+        }
+      ]
+    }
+  ]
+}
+```
+
+## 常见问题
+
+- 目录中无图片会报错，脚本会递归查找 `--images` 下的所有子目录图片。
+- 如果 `exposed-skin.yaml` 中类别名称调整，输出也会自动更新。
