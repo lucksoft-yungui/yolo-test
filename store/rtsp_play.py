@@ -15,7 +15,20 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from ultralytics import YOLO
 import yaml
 
-DEFAULT_MODEL = "yolo11n.pt"
+DEFAULT_MODEL = "model/fire-store/best.pt"
+DEFAULT_CLASS_NAMES = [
+    "消防救援超轻便携站（卫星通信） | Fire Rescue Sat Comms",
+    "采石矶消防站卫星指挥箱 | Caishiji Sat Command Box",
+    "o型丝扣门安全钩 | Type o Screw-in Safety Hook",
+    "安全钩 | Safety Hook",
+    "可燃气体检测仪 | Combustible Gas Detector",
+    "梨型钩 | Pear-type Hook",
+    "双滑轮 | Double Pulley",
+    "万向单滑轮 | Universal Single Pulley",
+    "消防头盔 | Fire Helmet",
+    "消防员水域救援头盔 | Firefighter Water Rescue Helmet",
+    "有毒气体探测仪 | Toxic Gas Detector",
+]
 DEBUG = False
 
 
@@ -26,17 +39,41 @@ def dlog(message: str) -> None:
     print(f"[DEBUG {ts}] {message}", flush=True)
 
 
+def normalize_label(text: str) -> str:
+    return " ".join(str(text).strip().lower().split())
+
+
+def find_whitelist_entry(
+    whitelist: Dict[str, "WhitelistEntry"],
+    class_name: str,
+) -> Optional["WhitelistEntry"]:
+    entry = whitelist.get(class_name)
+    if entry is not None:
+        return entry
+
+    target = normalize_label(class_name)
+    for key, candidate in whitelist.items():
+        key_norm = normalize_label(key)
+        if key_norm == target:
+            return candidate
+        if "|" in key:
+            left, right = [part.strip() for part in key.split("|", 1)]
+            if normalize_label(left) == target or normalize_label(right) == target:
+                return candidate
+    return None
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="仓储出入库识别应用")
     parser.add_argument(
         "--model",
         default=DEFAULT_MODEL,
-        help="YOLO 模型权重，默认使用官方 COCO 80 类别模型。",
+        help="YOLO 模型权重路径。",
     )
     parser.add_argument(
         "--conf",
         type=float,
-        default=0.5,
+        default=0.6,
         help="最小置信度阈值，低于该值的检测将被过滤。",
     )
     parser.add_argument(
@@ -157,7 +194,7 @@ class AsyncAnnotator:
         classes = boxes.cls.tolist()
         for cls_id, conf in zip(classes, confs):
             class_name = names.get(int(cls_id), str(int(cls_id)))
-            entry = whitelist.get(class_name)
+            entry = find_whitelist_entry(whitelist, class_name)
             if whitelist_enabled:
                 if entry is None or not entry.enabled:
                     continue
@@ -380,8 +417,8 @@ def video_loop(
                     annotator.stop()
                     annotator = AsyncAnnotator(new_model, conf_threshold, state.whitelist_snapshot)
                     class_names = load_dataset_names(dataset_path)
-                    if not class_names and hasattr(new_model, "names") and isinstance(new_model.names, dict):
-                        class_names = sorted({str(name) for name in new_model.names.values()})
+                    if not class_names:
+                        class_names = list(DEFAULT_CLASS_NAMES)
                     state.update_class_names(class_names)
 
             if cap is None:
@@ -959,8 +996,8 @@ def main() -> None:
     conf_threshold = args.conf
     model = YOLO(model_source)
     class_names = load_dataset_names(state.dataset_path)
-    if not class_names and hasattr(model, "names") and isinstance(model.names, dict):
-        class_names = sorted({str(name) for name in model.names.values()})
+    if not class_names:
+        class_names = list(DEFAULT_CLASS_NAMES)
     state.update_class_names(class_names)
 
     worker = threading.Thread(

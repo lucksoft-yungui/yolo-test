@@ -1,0 +1,16 @@
+path: datasets/fire-store-cls11
+train: images/train
+val: images/val
+names:
+
+  0: Fire Rescue Sat Comms
+  1: Caishiji Sat Command Box
+  2: Type O Screw-in Safety Hook
+  3: Safety Hook
+  4: Combustible Gas Detector
+  5: Pear-type Hook
+  6: Double Pulley
+  7: Universal Single Pulley
+  8: Fire Helmet
+  9: Firefighter Water Rescue Helmet
+  10: Toxic Gas Detector
