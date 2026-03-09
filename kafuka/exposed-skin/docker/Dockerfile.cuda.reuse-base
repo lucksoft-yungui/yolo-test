@@ -1,47 +1,11 @@
-FROM nvidia/cuda:12.3.2-cudnn9-runtime-ubuntu22.04
+ARG BASE_IMAGE=alarm-consumer:cuda
+FROM ${BASE_IMAGE}
 
 WORKDIR /app
 
-ARG http_proxy
-ARG https_proxy
-ARG all_proxy
-ARG HTTP_PROXY
-ARG HTTPS_PROXY
-ARG ALL_PROXY
-
-ENV DEBIAN_FRONTEND=noninteractive \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
-    UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple \
-    UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
-    UV_INDEX_STRATEGY=first-index \
-    http_proxy=${http_proxy} \
-    https_proxy=${https_proxy} \
-    all_proxy=${all_proxy} \
-    HTTP_PROXY=${HTTP_PROXY} \
-    HTTPS_PROXY=${HTTPS_PROXY} \
-    ALL_PROXY=${ALL_PROXY}
-
-RUN sed -i 's|http://archive.ubuntu.com/ubuntu|https://mirrors.tuna.tsinghua.edu.cn/ubuntu|g' /etc/apt/sources.list \
-    && sed -i 's|http://security.ubuntu.com/ubuntu|https://mirrors.tuna.tsinghua.edu.cn/ubuntu|g' /etc/apt/sources.list
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 python3-dev python3-pip python3-venv \
-       libgl1 libglib2.0-0 curl build-essential gfortran libopenblas-dev pkg-config \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN pip3 install --no-cache-dir uv
-
-ENV UV_CACHE_DIR=/root/.cache/uv
-COPY pyproject.toml /app/pyproject.toml
-COPY uv.lock /app/uv.lock
 COPY labcoat.yaml /app/labcoat.yaml
 COPY glove.yaml /app/glove.yaml
 COPY exposed-skin.yaml /app/exposed-skin.yaml
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=cache,target=/root/.cache/pip \
-    uv sync --frozen --default-index ${UV_DEFAULT_INDEX}
 
 ENV KAFKA_BOOTSTRAP_SERVERS=localhost:9092 \
     KAFKA_TOPIC=exposed-skin-alarm \

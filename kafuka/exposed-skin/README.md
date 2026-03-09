@@ -1,6 +1,6 @@
 # kafuka/exposed-skin
 
-实验人员皮肤裸露检测消费者。订阅 `exposed-skin-alarm`，先批量检测“穿实验服”，再裁剪对应区域检测“手套 + 皮肤裸露”，同一实验服区域同时命中后逐条推送到 `exposed-skin-alarm-result`。
+实验人员皮肤裸露检测消费者。订阅 `skin_exposure_alarm`，先批量检测“穿实验服”，再裁剪对应区域检测“手套 + 皮肤裸露”，同一实验服区域同时命中后逐条推送到 `skin_exposure_alarm-result`。
 
 ## 使用
 
@@ -12,8 +12,8 @@ uv run python kafuka/exposed-skin/exposed_skin_consumer.py
 
 ```bash
 uv run python kafuka/exposed-skin/exposed_skin_consumer.py \
-  --topic exposed-skin-alarm \
-  --alarm-topic exposed-skin-alarm-result \
+  --topic skin_exposure_alarm \
+  --alarm-topic skin_exposure_alarm-result \
   --labcoat-model model/labcoat/best.pt \
   --glove-model model/glove/best.pt \
   --exposed-skin-model model/exposed-skin/best.pt
@@ -30,9 +30,9 @@ uv run python kafuka/exposed-skin/exposed_skin_alarm_producer.py
 ```bash
 uv run python kafuka/exposed-skin/exposed_skin_consumer.py \
   --bootstrap-servers localhost:9092 \
-  --topic exposed-skin-alarm \
-  --alarm-topic exposed-skin-alarm-result \
-  --group-id exposed-skin-alarm-consumer \
+  --topic skin_exposure_alarm \
+  --alarm-topic skin_exposure_alarm_result \
+  --group-id skin_exposure_alarm-consumer \
   --batch-size 10 \
   --max-wait-sec 2 \
   --max-batches 0 \
@@ -62,7 +62,7 @@ uv run python kafuka/exposed-skin/exposed_skin_consumer.py \
 ```bash
 uv run python kafuka/exposed-skin/exposed_skin_alarm_producer.py \
   --bootstrap-servers localhost:9092 \
-  --topic exposed-skin-alarm \
+  --topic skin_exposure_alarm \
   --image-dir kafuka/exposed-skin/test/images \
   --limit 0 \
   --device-id "device1" \
@@ -72,10 +72,32 @@ uv run python kafuka/exposed-skin/exposed_skin_alarm_producer.py \
   --timestamp 0
 ```
 
+线上环境测试发送（按本地测试目录同名文件映射到线上目录）：
+
+```bash
+uv run python kafuka/exposed-skin/exposed_skin_alarm_producer_online.py \
+  --bootstrap-servers 10.10.6.13:9092 \
+  --topic skin_exposure_alarm \
+  --image-dir /mnt/nfs/collector/test/exposed-skin \
+  --local-image-dir kafuka/exposed-skin/test/images \
+  --limit 0 \
+  --device-id "4519701062984fe0b64fc046670d2de6" \
+  --area-id "7d05dc45136f417181798311a047c688" \
+  --area-no "D216" \
+  --zone-no "0001" \
+  --timestamp 0
+```
+
+说明：
+- 默认读取本地目录 `kafuka/exposed-skin/test/images` 的图片清单（名称/相对路径）。
+- 将每张图片映射到线上目录 `/mnt/nfs/collector/test/exposed-skin` 下的同名文件并发送（直接使用线上绝对路径，不在本机校验文件存在性）。
+- 如需在当前机器校验线上文件存在，可加 `--check-online-exists`。
+- 默认 Kafka 地址为 `10.10.6.13:9092`。
+
 ## 常用参数
 
-- `--topic`：消费主题，默认 `exposed-skin-alarm`
-- `--alarm-topic`：结果主题，默认 `exposed-skin-alarm-result`
+- `--topic`：消费主题，默认 `skin_exposure_alarm`
+- `--alarm-topic`：结果主题，默认 `skin_exposure_alarm-result`
 - `--labcoat-model` / `--glove-model` / `--exposed-skin-model`：模型路径
 - `--labcoat-class-name`：默认 `with labcoat`
 - `--glove-class-name`：默认 `with glove`
