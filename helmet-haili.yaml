@@ -1,0 +1,5 @@
+path: datasets/helmet-haili
+train: images/train
+val: images/val
+names:
+  0: with helmet

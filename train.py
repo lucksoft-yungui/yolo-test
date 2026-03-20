@@ -2,10 +2,11 @@ import argparse
 import platform
 import sys
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import torch
 from ultralytics import YOLO
+from ultralytics.nn.tasks import load_checkpoint
 
 # 检测 macOS M 芯片 (Apple Silicon) 支持
 def check_mps_support():
@@ -64,8 +65,21 @@ def parse_args():
     parser.add_argument("--epochs", type=int, default=100, help="训练轮次")
     parser.add_argument("--imgsz", type=int, default=None, help="输入图片尺寸（不填则使用模型默认）")
     parser.add_argument("--patience", type=int, default=50, help="Early stopping patience (epoch 数)")
-    parser.add_argument("--resume", action="store_true", help="从最近一次训练断点恢复")
-    parser.add_argument("--checkpoint", type=str, help="指定断点权重文件 (last.pt) 路径")
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="从最近一次训练断点恢复，保持 Ultralytics 原生 resume 行为",
+    )
+    parser.add_argument(
+        "--continus",
+        action="store_true",
+        help="从最近一次训练 checkpoint 继续追加训练；配合 --epochs 表示额外再训练多少轮",
+    )
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        help="指定断点权重文件路径（通常为 last.pt）",
+    )
     parser.add_argument(
         "--device",
         type=str,
@@ -92,26 +106,46 @@ def find_latest_checkpoint(runs_dir: Path) -> Optional[Path]:
             return ckpt
     return None
 
-def load_model(args) -> Tuple[YOLO, bool]:
-    """根据参数加载模型，并确定是否需要恢复训练"""
+def load_model(args) -> Tuple[YOLO, Optional[Path]]:
+    """根据参数加载模型，并返回所使用的 checkpoint 路径（若有）"""
     if args.checkpoint:
         checkpoint_path = Path(args.checkpoint)
         if not checkpoint_path.exists():
             print(f"❌ 指定的断点文件不存在: {checkpoint_path}")
             sys.exit(1)
-        print(f"🔄 使用指定断点继续训练: {checkpoint_path}")
-        return YOLO(str(checkpoint_path)), True
+        print(f"🔄 使用指定断点: {checkpoint_path}")
+        return YOLO(str(checkpoint_path)), checkpoint_path
 
-    if args.resume:
+    if args.resume or args.continus:
         checkpoint_path = find_latest_checkpoint(Path(args.runs_dir))
         if checkpoint_path:
             print(f"🔄 检测到最近的断点文件: {checkpoint_path}")
-            return YOLO(str(checkpoint_path)), True
+            return YOLO(str(checkpoint_path)), checkpoint_path
         print("⚠️ 未在 runs 目录中找到可用的断点，改为重新训练")
 
     model_cfg = MODEL_CONFIGS[args.model_size]
     print(f"🆕 未指定断点，将从预训练权重开始训练: {args.model_size}")
-    return YOLO(model_cfg["yaml"]).load(model_cfg["weights"]), False
+    return YOLO(model_cfg["yaml"]).load(model_cfg["weights"]), None
+
+
+def read_checkpoint_info(checkpoint_path: Path) -> Dict[str, Any]:
+    """读取 checkpoint 中的训练元信息，用于继续追加训练。"""
+    try:
+        _, ckpt = load_checkpoint(str(checkpoint_path), device="cpu", fuse=False)
+    except Exception as exc:
+        print(f"❌ 读取断点文件失败: {checkpoint_path}")
+        print(f"原因: {exc}")
+        sys.exit(1)
+
+    train_args = ckpt.get("train_args", {}) or {}
+    epoch = ckpt.get("epoch", -1)
+    completed_epochs = epoch + 1 if isinstance(epoch, int) and epoch >= 0 else 0
+    saved_total_epochs = train_args.get("epochs")
+    return {
+        "completed_epochs": completed_epochs,
+        "saved_total_epochs": saved_total_epochs if isinstance(saved_total_epochs, int) else None,
+        "train_args": train_args,
+    }
 
 def resolve_device(device_arg: Optional[str]) -> str:
     """根据参数或自动检测选择训练设备"""
@@ -173,6 +207,9 @@ def resolve_device(device_arg: Optional[str]) -> str:
 
 def main():
     args = parse_args()
+    if args.resume and args.continus:
+        print("❌ --resume 和 --continus 不能同时使用")
+        sys.exit(1)
 
     # 优先使用 --file 指定的配置文件，否则回落到 --data
     data_arg = args.file if args.file else args.data
@@ -189,34 +226,57 @@ def main():
     device = resolve_device(args.device)
 
     # 加载模型/断点
-    model, resume_mode = load_model(argparse.Namespace(**{**vars(args), "runs_dir": runs_dir}))
+    model, checkpoint_path = load_model(argparse.Namespace(**{**vars(args), "runs_dir": runs_dir}))
 
     # 组装训练参数
     model_cfg = MODEL_CONFIGS[args.model_size]
-    imgsz = args.imgsz if args.imgsz is not None else model_cfg["imgsz"]
-    train_kwargs = {"device": device}
-    if resume_mode:
-        train_kwargs["resume"] = True
+    checkpoint_info = read_checkpoint_info(checkpoint_path) if checkpoint_path and args.continus else None
+    default_imgsz = model_cfg["imgsz"]
+    if checkpoint_info and args.imgsz is None:
+        saved_imgsz = checkpoint_info["train_args"].get("imgsz")
+        imgsz = saved_imgsz if isinstance(saved_imgsz, int) and saved_imgsz > 0 else default_imgsz
     else:
-        train_kwargs.update(
-            data=str(data_path),
-            epochs=args.epochs,
-            imgsz=imgsz,
-            patience=args.patience,
-        )
+        imgsz = args.imgsz if args.imgsz is not None else default_imgsz
+
+    if args.resume and checkpoint_path:
+        train_kwargs = {"device": device, "resume": True}
+    else:
+        train_kwargs = {
+            "data": str(data_path),
+            "epochs": args.epochs,
+            "imgsz": imgsz,
+            "patience": args.patience,
+            "device": device,
+        }
+
+    if checkpoint_info:
+        completed_epochs = checkpoint_info["completed_epochs"]
+        train_kwargs["epochs"] = completed_epochs + args.epochs
 
     train_kwargs["project"] = str(project)
     train_kwargs["name"] = run_name
 
     # 开始训练
     print(f"\n开始训练，使用设备: {device}")
-    if resume_mode:
-        print("模式: 断点恢复\n")
+    if args.resume and checkpoint_path:
+        print("模式: 原生断点恢复")
+        print(f"断点: {checkpoint_path}\n")
     else:
         print(f"数据集: {data_path}")
-        print(f"轮次: {args.epochs}")
         print(f"模型规模: {args.model_size}")
-        print(f"图像尺寸: {imgsz}\n")
+        print(f"图像尺寸: {imgsz}")
+    if checkpoint_info:
+        saved_total_epochs = checkpoint_info["saved_total_epochs"]
+        completed_epochs = checkpoint_info["completed_epochs"]
+        print("模式: 从 checkpoint 继续追加训练")
+        print(f"断点: {checkpoint_path}")
+        print(f"已完成轮次: {completed_epochs}")
+        if saved_total_epochs is not None:
+            print(f"原计划总轮次: {saved_total_epochs}")
+        print(f"本次追加轮次: {args.epochs}")
+        print(f"新的总轮次: {train_kwargs['epochs']}\n")
+    elif not (args.resume and checkpoint_path):
+        print(f"轮次: {args.epochs}\n")
 
     model.train(**train_kwargs)
 

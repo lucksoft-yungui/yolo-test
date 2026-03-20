@@ -147,6 +147,28 @@ uv run python http_record.py \
 - `--url` HTTP 流媒体地址
 - `--output-dir` 输出目录（默认 `videos`）
 
+后台训练：
+
+```
+nohup uv run python train.py --file smoking.yaml --model-size yolo11m --epochs 100 --patience 20 --imgsz 640 --device 0,1,2,3 > train.log 2>&1 &
+
+
+nohup uv run python train.py --file smoking.yaml --model-size yolo11m --epochs 100 --patience 20 --imgsz 640 > train.log 2>&1 &
+
+tail -f train.log
+
+ ## 停止
+ kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader,nounits)
+
+
+```
+
+恢复训练：
+
+```
+nohup uv run python train.py --file smoking.yaml --model-size yolo11m --continus --epochs 50 --patience 20 --imgsz 640 > train.log 2>&1 &
+```
+
 ## 训练
 
 ```
@@ -181,4 +203,10 @@ uv run python train.py --file labcoat-3cls.yaml --model-size yolo11m --epochs 10
 uv run python train.py --file exposed-skin.yaml --model-size yolo11m --epochs 50 --imgsz 640 --patience 20 --device 0,1,2,3
 
 uv run python train.py --file fire-store-cls11.yaml --model-size yolo11m --epochs 50 --imgsz 1280 --patience 10 --device 0,1,2,3
+
+uv run python train.py --file helmet.yaml --model-size yolo11m --epochs 100 --patience 10 --device 0,1,2,3
+
+uv run python train.py --file smoking.yaml --model-size yolo11m --epochs 100 --patience 20 --imgsz 1280 --device 0,1,2,3
 ```
+
+
